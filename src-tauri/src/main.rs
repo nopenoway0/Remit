@@ -9,13 +9,11 @@
 //#![windows_subsystem = "windows"]
 
 use tauri::{plugin::{Plugin, Result as PluginResult}, Runtime, PageLoadPayload, Window, Invoke, AppHandle};
-use tauri::Manager;
 use std::{sync::Mutex, sync::MutexGuard};
 use once_cell::sync::Lazy;
 use std::io::Error;
 use std::path::Path;
 use std::collections::HashMap;
-use std::fmt::Debug;
 mod configmanager;
 mod sessionmanager;
 mod syncmanager;
@@ -28,7 +26,7 @@ type ApiRef<'a> = MutexGuard<'a, manager::rustssh::Manager>;
 
 /// Api that contains global state of the program
 static REMIT_API: Lazy<Mutex<manager::rustssh::Manager>> = Lazy::new(|| {
-  let mut manager = manager::rustssh::Manager::new_empty();
+  let manager = manager::rustssh::Manager::new_empty();
   return Mutex::new(manager);
 });
 
@@ -55,7 +53,7 @@ struct Remit<R: Runtime> {
   #[tauri::command]
   async fn download(filename: String, open: Option<bool>) -> Result<(), String> {
     let mut var: u32 = 0;
-    let r = run_api_command::<u32>(&mut var, &|output: &mut u32, api: &mut ApiRef| -> Result<(), std::io::Error>{
+    let r = run_api_command::<u32>(&mut var, &|_output: &mut u32, api: &mut ApiRef| -> Result<(), std::io::Error>{
       api.download_file(filename.clone(), open)?;
       return Ok(());
     })?;
@@ -172,15 +170,15 @@ struct Remit<R: Runtime> {
     }
   
     /// initialize plugin with the config provided on `tauri.conf.json > plugins > $yourPluginName` or the default value.
-    fn initialize(&mut self, app: &AppHandle<R>, config: serde_json::Value) -> PluginResult<()> {
+    fn initialize(&mut self, _app: &AppHandle<R>, _config: serde_json::Value) -> PluginResult<()> {
       Ok(())
     }
   
     /// Callback invoked when the Window is created.
-    fn created(&mut self, window: Window<R>) {}
+    fn created(&mut self, _window: Window<R>) {}
   
     /// Callback invoked when the webview performs a navigation.
-    fn on_page_load(&mut self, window: Window<R>, payload: PageLoadPayload) {}
+    fn on_page_load(&mut self, _window: Window<R>, _payload: PageLoadPayload) {}
 
     /// Extend the invoke handler.
     fn extend_api(&mut self, message: Invoke<R>) {
@@ -193,7 +191,7 @@ struct Remit<R: Runtime> {
     let remit = Remit::new();
     tauri::Builder::default()
         .plugin(remit)
-        .setup(|app| {
+        .setup(|_app| {
             // listen to the `event-name` (emitted on any window)
             //let id = app.listen_global("login", |event| {
             //    println!("got event-name with payload {:?}", "");

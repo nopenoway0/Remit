@@ -5,13 +5,6 @@ use ssh2::*;
 use std::net::TcpStream;
 use std::io::Read;
 use std::fmt::Debug;
-use std::fmt::Display;
-use std::collections::HashMap;
-use std::process::Command;
-use std::io::stdout;
-use std::io::stderr;
-use std::io::Stdout;
-use std::io::Stderr;
 use std::collections::BTreeMap;
 
 
@@ -38,7 +31,6 @@ impl Permissions {
         }
         let perm_str = input.unwrap();
         let mut p = Permissions::new(None);
-        let length = 3;
         p.read = perm_str.chars().nth(0).unwrap() == 'r';
         p.write = perm_str.chars().nth(1).unwrap() == 'w';
         p.exec = perm_str.chars().nth(2).unwrap() == 'x';
@@ -93,6 +85,7 @@ pub struct Directory {
     pub path: SystemPath
 }
 
+#[allow(dead_code)]
 impl Directory {
 
     pub fn clear(&mut self) {
@@ -169,6 +162,7 @@ impl Directory {
     }
 }
 
+#[allow(dead_code)]
 impl SessionManager {
 
     pub fn set_params(&mut self, user: Option<String>, pass: Option<String>, url: Option<String>) {
@@ -190,7 +184,7 @@ impl SessionManager {
     }
 
     pub fn new(user: Option<String>, pass: Option<String>, url: Option<String>) -> SessionManager {
-        let mut session: Session;
+        let session: Session;
         {
             let r = Session::new();
             if r.is_err() {

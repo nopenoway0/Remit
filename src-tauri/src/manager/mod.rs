@@ -8,11 +8,10 @@ use crate::sessionmanager::rustssh::Directory;
 use crate::configmanager::rustssh::ConfigManager;
 use crate::configmanager::rustssh::RemitConfig;
 use std::process::Command;
-use std::os::windows::process::CommandExt;
 use std::env::current_dir;
 
-type ioError = std::io::Error;
-type ioErrorKind = std::io::ErrorKind;
+type IOError = std::io::Error;
+type IOErrorKind = std::io::ErrorKind;
 
 /// Primary manager over the ssh, rclone and config managers. 
 /// 
@@ -31,7 +30,7 @@ pub struct Manager {
     pub dir: Directory
 }
 
-
+#[allow(dead_code)]
 impl Manager {
 
     /// Create a Manager with only Remit configs loaded
@@ -47,7 +46,7 @@ impl Manager {
     }
 
     /// Create a manager with configs loaded and params pass into it
-    pub fn new(host: String, username: String, pass: Option<String>, rclone_config: Option<String>, port_option: Option<String>) -> Result<Manager, ioError>{
+    pub fn new(host: String, username: String, pass: Option<String>, rclone_config: Option<String>, port_option: Option<String>) -> Result<Manager, IOError>{
         let mut m = Manager::new_empty();
         m.set_params(host, username, pass, rclone_config, None, port_option)?;
         return Ok(m);
@@ -57,16 +56,16 @@ impl Manager {
     /// 
     /// If the rclone_config provided doesn't exist it will be created with the parameters passed in
     pub fn set_params(&mut self, host:String, username: String, password: Option<String>, rclone_config: Option<String>,
-                        pem_file: Option<String>, port_option: Option<String>) -> Result<(), ioError> {
+                        pem_file: Option<String>, port_option: Option<String>) -> Result<(), IOError> {
 
-        /// load existing rclone configs by parsing rclone_m config show
+        // load existing rclone configs by parsing rclone_m config show
         self.rclone_m.load_configs();
         let mut full_host = host.clone();
         full_host = format!("{}:{}", full_host, port_option.unwrap_or("22".to_string()));
 
         // if rclone_config doesn't exist create it and then set the name, otherwise just set the config name
-        rclone_config.ok_or_else(||return ioError::new(ioErrorKind::Other, "no config")).and_then(|config: String| -> Result<String, ioError>{
-            self.rclone_m.set_config(config.clone()).or_else(|error: ioError| -> Result<(), ioError> {
+        rclone_config.ok_or_else(||return IOError::new(IOErrorKind::Other, "no config")).and_then(|config: String| -> Result<String, IOError>{
+            self.rclone_m.set_config(config.clone()).or_else(|_error: IOError| -> Result<(), IOError> {
                 self.rclone_m.create_sftp_config(config.clone(),
                                                     username.clone(),
                                                     host.clone(),
@@ -77,7 +76,7 @@ impl Manager {
             return Ok("".to_string());
         })?;
 
-        /// set up our credentials for ssh
+        // set up our credentials for ssh
         self.ssh_m.set_params(Some(username.clone()), password.clone(), Some(full_host.clone()));
         return Ok(());
     }
@@ -86,14 +85,14 @@ impl Manager {
     /// 
     /// If connected succesfully, the ssh_m manager with modify the Manager directory
     /// to have the absolute path by parsing pwd
-    pub fn connect(&mut self) -> Result<(), ioError>{
+    pub fn connect(&mut self) -> Result<(), IOError>{
         self.ssh_m.connect()?;
         self.dir.path.set_path(self.ssh_m.run_command("pwd".to_string()).unwrap());
         return Ok(());
     }
 
     /// disconnect from current ssh endpoint
-    pub fn disconnect(&mut self) -> Result<(), ioError> {
+    pub fn disconnect(&mut self) -> Result<(), IOError> {
         return self.ssh_m.disconnect();
     }
 
@@ -102,7 +101,7 @@ impl Manager {
     /// This method only needs to be called when the path has changed. It performs
     /// and parses an ls -al on the path present in the directory to read files
     /// and their attributes into the same directory
-    pub fn get_directory(&mut self) -> Result<(), ioError>{
+    pub fn get_directory(&mut self) -> Result<(), IOError>{
         self.ssh_m.get_directory(&mut self.dir)?;
         return Ok(());
     }
@@ -123,7 +122,7 @@ impl Manager {
     /// use window explorer to try and open the file
     /// 
     /// The file must exist in the path currently in Manager's dir file
-    pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), ioError>{
+    pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), IOError>{
         let r = self.rclone_m.download_remote_file(&mut self.dir, name.clone());
         if r.success() {
             open.map(|open: bool| {
@@ -137,7 +136,7 @@ impl Manager {
             });
             return Ok(());
         } else {
-            return Err(ioError::new(ioErrorKind::Other, "error during download"));
+            return Err(IOError::new(IOErrorKind::Other, "error during download"));
         }
     }
 

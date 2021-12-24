@@ -1,11 +1,8 @@
 pub mod rustssh {
-
 use std::collections::HashMap;
 use std::process::Command;
 use std::string::ToString;
-use std::fmt::Display;
 use std::fmt::Debug;
-use std::clone;
 use std::os::windows::process::CommandExt;
 use crate::sessionmanager::rustssh::Directory;
 
@@ -62,7 +59,7 @@ pub struct RCloneManager {
     configs: HashMap<String, RCloneConfig>,   
     chosen_config: String
 }
-
+#[allow(dead_code)]
 impl RCloneManager {
     pub fn new() -> RCloneManager{
         return RCloneManager{exe: "rclone.exe".to_string(), configs: HashMap::new(), chosen_config: String::new()};
@@ -160,7 +157,7 @@ impl RCloneManager {
 
     pub fn push_local_file(&mut self, d:&mut Directory, filename: String) {
         let file_path = format!(".{}/{}", d.path.get_path(), filename);
-        let output = Command::new(self.exe.clone())
+        let _output = Command::new(self.exe.clone())
                                     .arg("sync")
                                     .arg(file_path)
                                     .arg(format!("{}:{}", self.chosen_config, d.path.get_path()))
