@@ -5,7 +5,7 @@ use std::fs::read_dir;
 use std::fs::read_to_string;
 use std::fs::write;
 
-type ioError = std::io::Error;
+type IOError = std::io::Error;
 
 #[derive(Clone)]
 pub struct RemitConfig {
@@ -30,6 +30,7 @@ pub struct ConfigManager{
     config_path: SystemPath
 }
 
+#[allow(dead_code)]
 impl ConfigManager {
 
     /// construct config manager with default path set to ./configs
@@ -40,8 +41,8 @@ impl ConfigManager {
     }
 
     /// load all the remit configs (.rcfg) found in the directory
-    pub fn load_configs(&mut self) -> Result<(), ioError>{
-        return read_dir(self.config_path.get_path().clone()).and_then(|paths: std::fs::ReadDir| -> Result<(), ioError>{
+    pub fn load_configs(&mut self) -> Result<(), IOError>{
+        return read_dir(self.config_path.get_path().clone()).and_then(|paths: std::fs::ReadDir| -> Result<(), IOError>{
             for path in paths {
                 let dir = path.unwrap();
                 let name = dir.file_name().into_string().unwrap();
