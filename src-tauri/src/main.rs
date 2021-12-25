@@ -26,7 +26,7 @@ type ApiRef<'a> = MutexGuard<'a, manager::rustssh::Manager>;
 
 /// Api that contains global state of the program
 static REMIT_API: Lazy<Mutex<manager::rustssh::Manager>> = Lazy::new(|| {
-  let manager = manager::rustssh::Manager::new_empty();
+  let manager = manager::rustssh::Manager::new_empty().unwrap();
   return Mutex::new(manager);
 });
 
@@ -79,7 +79,7 @@ struct Remit<R: Runtime> {
       for entry in &api.dir.files {
         let mut file = HashMap::<String,String>::new();
         file.insert("name".to_string(), entry.0.clone());
-        file.insert("type".to_string(), format!("{:?}", entry.1.filetype));
+        file.insert("type".to_string(), format!("{:?}", entry.1.info.file_type));
         file.insert("size".to_string(), entry.1.info.size.to_string());
         filenames.push(file);
       }

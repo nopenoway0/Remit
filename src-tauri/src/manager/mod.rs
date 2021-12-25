@@ -34,20 +34,18 @@ pub struct Manager {
 impl Manager {
 
     /// Create a Manager with only Remit configs loaded
-    pub fn new_empty() -> Manager {
-        let mut m = Manager{ssh_m: SessionManager::new(None, None, None),
+    pub fn new_empty() -> Result<Manager, IOError> {
+        let mut m = Manager{ssh_m: SessionManager::new(None, None, None)?,
                         rclone_m: RCloneManager::new(),
                         config_m: ConfigManager::new(),
                         dir: Directory::new(None)};
-        match m.config_m.load_configs() {
-            _=>{}
-        }
-        return m;
+        m.config_m.load_configs()?;
+        return Ok(m);
     }
 
     /// Create a manager with configs loaded and params pass into it
     pub fn new(host: String, username: String, pass: Option<String>, rclone_config: Option<String>, port_option: Option<String>) -> Result<Manager, IOError>{
-        let mut m = Manager::new_empty();
+        let mut m = Manager::new_empty()?;
         m.set_params(host, username, pass, rclone_config, None, port_option)?;
         return Ok(m);
     }
@@ -118,7 +116,7 @@ impl Manager {
         return Ok(());
     }
 
-    /// downloads a fail that exists in the current path. If the open flag contains true
+    /// downloads a file that exists in the current path. If the open flag contains true
     /// use window explorer to try and open the file
     /// 
     /// The file must exist in the path currently in Manager's dir file
