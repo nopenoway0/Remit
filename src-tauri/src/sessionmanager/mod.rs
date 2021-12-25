@@ -276,18 +276,5 @@ impl SessionManager {
             _=>return Err(IOError::new(IOErrorKind::Other, "selection not a directory"))
         }
     }
-
-    /*pub fn sync_local_file(&mut self, d: &Directory, name: String) {
-        let mut path = d.path.clone();
-        SessionManager::add_trailing_slash(&mut path);
-        println!("{}", path);
-        let output = Command::new("rclone.exe")
-                .arg("sync")
-                .arg(format!("./{}", name))
-                .arg(format!("{}{}", "test:", path))
-                .output()
-                .expect("couldnt run");
-        println!("{:?}", output);
-    }*/
 }
 }

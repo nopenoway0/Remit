@@ -36,7 +36,7 @@ impl Manager {
     /// Create a Manager with only Remit configs loaded
     pub fn new_empty() -> Result<Manager, IOError> {
         let mut m = Manager{ssh_m: SessionManager::new(None, None, None)?,
-                        rclone_m: RCloneManager::new(),
+                        rclone_m: RCloneManager::new(None),
                         config_m: ConfigManager::new(),
                         dir: Directory::new(None)};
         m.config_m.load_configs()?;
@@ -57,7 +57,7 @@ impl Manager {
                         pem_file: Option<String>, port_option: Option<String>) -> Result<(), IOError> {
 
         // load existing rclone configs by parsing rclone_m config show
-        self.rclone_m.load_configs();
+        self.rclone_m.load_configs()?;
         let mut full_host = host.clone();
         full_host = format!("{}:{}", full_host, port_option.unwrap_or("22".to_string()));
 
@@ -122,7 +122,7 @@ impl Manager {
     /// The file must exist in the path currently in Manager's dir file
     pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), IOError>{
         let r = self.rclone_m.download_remote_file(&mut self.dir, name.clone());
-        if r.success() {
+        if r?.success() {
             open.map(|open: bool| {
                 if open {
                     let mut full_path = self.dir.path.clone();
@@ -136,10 +136,6 @@ impl Manager {
         } else {
             return Err(IOError::new(IOErrorKind::Other, "error during download"));
         }
-    }
-
-    pub fn push_local_file(&mut self, d:&mut Directory, name: String) {
-        self.rclone_m.push_local_file(d, name);
     }
 
     /// get a list of remit configurations
