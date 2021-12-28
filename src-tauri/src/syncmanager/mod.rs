@@ -196,6 +196,23 @@ impl RCloneManager {
                                     .output()?;
         return Ok(output.status);
     }
+
+    pub fn upload_local_file(&mut self, d: &mut Directory, filename: String) -> Result<std::process::ExitStatus, IOError>{
+        let file_path = d.path.clone();
+        let mut local_path = file_path.clone();
+        if self.custom_path.len() > 0 {
+            local_path.prepd(self.custom_path.clone());
+        }
+        local_path.pushd(filename.clone());
+        println!("rclone.exe sync {} {}:{}", local_path.get_windows_path_local(), self.chosen_config, file_path.get_path());
+        let output = Command::new(self.exe.clone())
+                                    .arg("sync")
+                                    .arg(format!("{}", local_path.get_windows_path_local()))
+                                    .arg(format!("{}:{}", self.chosen_config, file_path.get_path()))
+                                    .creation_flags(CREATE_NO_WINDOW)
+                                    .output()?;
+        return Ok(output.status);
+    }
 }
 
 
