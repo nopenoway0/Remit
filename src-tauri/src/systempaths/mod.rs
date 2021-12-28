@@ -60,12 +60,13 @@ impl SystemPath {
     /// pop the last element, unless empty. return
     /// 
     /// method is used to go up one directory
-    pub fn popd(&mut self){
-        let _r = self.path.pop_back();
+    pub fn popd(&mut self) -> String{
+        let r = self.path.pop_back();
         if self.path.len() == 0 {
             self.path.push_back("/".to_string());
         }
         self.create_path_str();
+        return r.unwrap_or("".to_string());
     }
 
     /// push directory
@@ -117,6 +118,21 @@ impl SystemPath {
             self.path.push_back("/".to_string());
         }
         for p in path.split("/") {
+            self.pushd(p.to_string());
+        }
+        self.create_path_str();
+        return self.path_str == path;
+    }
+
+    pub fn set_win_path(&mut self, path: String) -> bool {
+        self.path.clear();
+        if path.len() == 0 {
+            return false;
+        }
+        if path.chars().next().unwrap() == '\\' {
+            self.path.push_back("/".to_string());
+        }
+        for p in path.split("\\") {
             self.pushd(p.to_string());
         }
         self.create_path_str();
