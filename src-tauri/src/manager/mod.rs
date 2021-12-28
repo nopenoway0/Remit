@@ -9,7 +9,7 @@ use crate::sessionmanager::rustssh::*;
 use crate::configmanager::rustssh::{ConfigManager, RemitConfig};
 use std::process::Command;
 use std::env::current_dir;
-
+use std::sync::{Arc, Mutex};
 type IOError = std::io::Error;
 type IOErrorKind = std::io::ErrorKind;
 
@@ -21,7 +21,7 @@ pub struct Manager {
     /// Ssh session manager to manage ssh commands to the host
     ssh_m: SessionManager,
     /// rclone manager. Used to interface and use commands with the rclone binary
-    rclone_m: RCloneManager,
+    rclone_m: Arc::<Mutex::<RCloneManager>>,
 
     /// Load Remit configs
     config_m: ConfigManager,
@@ -41,11 +41,12 @@ impl Manager {
     pub fn new_empty() -> Result<Manager, IOError> {
         let mut path = SystemPath::new();
         path.set_path(".remote".to_string());
+        let rclone_instance = Arc::new(Mutex::new(RCloneManager::new(None, Some(".remote".to_string()))));
         let mut m = Manager{ssh_m: SessionManager::new(None, None, None)?,
-                        rclone_m: RCloneManager::new(None, Some(".remote".to_string())),
+                        rclone_m: rclone_instance.clone(),
                         config_m: ConfigManager::new(),
                         dir: Directory::new(None),
-                        file_tracker: DirectoryTracker::new(path),
+                        file_tracker: DirectoryTracker::new(path, rclone_instance.clone()),
                         custom_path: ".remote".to_string()/*String::new()*/};
         m.config_m.load_configs()?;
         return Ok(m);
@@ -65,20 +66,20 @@ impl Manager {
                         pem_file: Option<String>, port_option: Option<String>) -> Result<(), IOError> {
 
         // load existing rclone configs by parsing rclone_m config show
-        self.rclone_m.load_configs()?;
+        self.rclone_m.lock().unwrap().load_configs()?;
         let mut full_host = host.clone();
         full_host = format!("{}:{}", full_host, port_option.unwrap_or("22".to_string()));
 
         // if rclone_config doesn't exist create it and then set the name, otherwise just set the config name
         rclone_config.ok_or_else(||return IOError::new(IOErrorKind::Other, "no config")).and_then(|config: String| -> Result<String, IOError>{
-            self.rclone_m.set_config(config.clone()).or_else(|_error: IOError| -> Result<(), IOError> {
-                self.rclone_m.create_sftp_config(config.clone(),
+            self.rclone_m.lock().unwrap().set_config(config.clone()).or_else(|_error: IOError| -> Result<(), IOError> {
+                self.rclone_m.lock().unwrap().create_sftp_config(config.clone(),
                                                     username.clone(),
                                                     host.clone(),
                                                     password.clone(), pem_file)?;
                 return Ok(());
             })?;
-            self.rclone_m.set_config(config.clone())?;
+            self.rclone_m.lock().unwrap().set_config(config.clone())?;
             return Ok("".to_string());
         })?;
 
@@ -136,7 +137,7 @@ impl Manager {
     /// 
     /// The file must exist in the path currently in Manager's dir file
     pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), IOError>{
-        let r = self.rclone_m.download_remote_file(&mut self.dir, name.clone());
+        let r = self.rclone_m.lock().unwrap().download_remote_file(&mut self.dir, name.clone());
         if r?.success() {
             open.map(|open: bool| {
                 if open {
@@ -150,6 +151,15 @@ impl Manager {
                     .output();
                 }
             });
+            return Ok(());
+        } else {
+            return Err(IOError::new(IOErrorKind::Other, "error during download"));
+        }
+    }
+
+    pub fn upload_file(&mut self, name: String) -> Result<(), IOError>{
+        let r = self.rclone_m.lock().unwrap().upload_local_file(&mut self.dir, name.clone());
+        if r?.success() {
             return Ok(());
         } else {
             return Err(IOError::new(IOErrorKind::Other, "error during download"));
