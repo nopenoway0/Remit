@@ -19,7 +19,8 @@ mod sessionmanager;
 mod syncmanager;
 mod systempaths;
 mod manager;
-
+mod filetracker;
+mod fileeventconsumer;
 /// Mutex controlled Manager. Used to make all api calls in the backend
 /// once control is given
 type ApiRef<'a> = MutexGuard<'a, manager::rustssh::Manager>;

@@ -72,15 +72,17 @@ impl RCloneConfig {
 pub struct RCloneManager {
     exe: String,
     configs: HashMap<String, RCloneConfig>,   
-    chosen_config: String
+    chosen_config: String,
+    custom_path: String
 }
 #[allow(dead_code)]
 impl RCloneManager {
     /// produce a new rlcone manager with the exe at the passed in 
     /// input. If input is none assume rclone.exe is in the current
     /// directory
-    pub fn new(exe: Option<String>) -> RCloneManager{
-        return RCloneManager{exe: exe.unwrap_or("rclone.exe".to_string()), configs: HashMap::new(), chosen_config: String::new()};
+    pub fn new(exe: Option<String>, custom_path: Option<String>) -> RCloneManager{
+        return RCloneManager{exe: exe.unwrap_or("rclone.exe".to_string()), configs: HashMap::new(), chosen_config: String::new(),
+                                custom_path: custom_path.unwrap_or("".to_string())};
     }
 
     /// load all rclone configurations
@@ -181,11 +183,15 @@ impl RCloneManager {
     /// Attempt to download a remote file using directory and filename
     pub fn download_remote_file(&mut self, d: &mut Directory, filename: String) -> Result<std::process::ExitStatus, IOError>{
         let mut file_path = d.path.clone();
+        let mut local_path = file_path.clone();
+        if self.custom_path.len() > 0 {
+            local_path.prepd(self.custom_path.clone());
+        }
         file_path.pushd(filename.clone());
         let output = Command::new(self.exe.clone())
                                     .arg("sync")
                                     .arg(format!("{}:{}", self.chosen_config, file_path.get_path()))
-                                    .arg(format!(".{}", d.path.get_path()))
+                                    .arg(format!("{}", local_path.get_windows_path_local()))
                                     .creation_flags(CREATE_NO_WINDOW)
                                     .output()?;
         return Ok(output.status);

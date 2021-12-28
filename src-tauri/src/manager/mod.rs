@@ -1,12 +1,12 @@
 
 
 pub mod rustssh{
-
+use windows::Win32::Storage::FileSystem::{FILE_NOTIFY_CHANGE_ATTRIBUTES, FILE_NOTIFY_CHANGE_LAST_ACCESS};
+use crate::systempaths::rustssh::SystemPath;
+use crate::filetracker::rustssh::DirectoryTracker;
 use crate::syncmanager::rustssh::*;
 use crate::sessionmanager::rustssh::*;
-use crate::sessionmanager::rustssh::Directory;
-use crate::configmanager::rustssh::ConfigManager;
-use crate::configmanager::rustssh::RemitConfig;
+use crate::configmanager::rustssh::{ConfigManager, RemitConfig};
 use std::process::Command;
 use std::env::current_dir;
 
@@ -27,7 +27,11 @@ pub struct Manager {
     config_m: ConfigManager,
 
     /// Directory for tracking current path in the remote computer
-    pub dir: Directory
+    pub dir: Directory,
+
+    file_tracker: DirectoryTracker,
+
+    custom_path: String
 }
 
 #[allow(dead_code)]
@@ -35,10 +39,14 @@ impl Manager {
 
     /// Create a Manager with only Remit configs loaded
     pub fn new_empty() -> Result<Manager, IOError> {
+        let mut path = SystemPath::new();
+        path.set_path(".remote".to_string());
         let mut m = Manager{ssh_m: SessionManager::new(None, None, None)?,
-                        rclone_m: RCloneManager::new(None),
+                        rclone_m: RCloneManager::new(None, Some(".remote".to_string())),
                         config_m: ConfigManager::new(),
-                        dir: Directory::new(None)};
+                        dir: Directory::new(None),
+                        file_tracker: DirectoryTracker::new(path),
+                        custom_path: ".remote".to_string()/*String::new()*/};
         m.config_m.load_configs()?;
         return Ok(m);
     }
@@ -85,12 +93,19 @@ impl Manager {
     /// to have the absolute path by parsing pwd
     pub fn connect(&mut self) -> Result<(), IOError>{
         self.ssh_m.connect()?;
-        self.dir.path.set_path(self.ssh_m.run_command("pwd".to_string()).unwrap());
+        if !self.dir.path.set_path(self.ssh_m.run_command("pwd".to_string()).unwrap()) {
+            println!("Error setting path");
+        }
+        let mut path = SystemPath::new();
+        path.pushd(self.custom_path.clone());
+        self.file_tracker.start_tracking(&mut path)?;
         return Ok(());
     }
 
     /// disconnect from current ssh endpoint
+    /// TODO add error handling for stop tracking
     pub fn disconnect(&mut self) -> Result<(), IOError> {
+        self.file_tracker.stop_tracking();
         return self.ssh_m.disconnect();
     }
 
@@ -127,8 +142,11 @@ impl Manager {
                 if open {
                     let mut full_path = self.dir.path.clone();
                     full_path.pushd(name);
+                    if self.custom_path.len() > 0 {
+                        full_path.prepd(self.custom_path.clone());
+                    }
                     let _output = Command::new("explorer")
-                    .arg(format!("{}{}", current_dir().unwrap().to_str().unwrap(), full_path.get_windows_path()))
+                    .arg(format!("{}\\{}", current_dir().unwrap().to_str().unwrap(), full_path.get_windows_path_local()))
                     .output();
                 }
             });
