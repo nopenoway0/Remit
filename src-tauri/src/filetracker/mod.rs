@@ -4,36 +4,39 @@ pub mod rustssh {
     use windows::Win32::System::Threading::CreateEventA;
     use windows::Win32::System::IO::{OVERLAPPED, GetOverlappedResult};
     use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE, GetLastError, BOOL, CloseHandle};
+    use crate::syncmanager::rustssh::RCloneManager;
     use crate::systempaths::rustssh::SystemPath;
+    use crate::fileeventconsumer::rustssh::*;
     use std::io::{Error, ErrorKind};
     use std::thread::spawn;
     use std::sync::{Arc, Mutex};
     type IOError = std::io::Error;
     type IOErrorKind = std::io::ErrorKind;
     use std::env::current_dir;
-    use std::collections::HashMap;
     const KILL_THREAD: u32 = 1u32;
     const RESUME_THREAD: u32 = 0u32;
 
     pub struct DirectoryTracker {
         path: SystemPath,
-        handles: Arc<Mutex::<Vec::<FindChangeNotificationHandle>>>,
         thread_control: Arc<Mutex::<u32>>,
-        dir_handle: Arc<HANDLE>
+        dir_handle: Arc<HANDLE>,
+        consumer: Arc::<Mutex::<FileEventConsumer>>
     }
 
     impl DirectoryTracker {
-        pub fn new(path: SystemPath) -> DirectoryTracker {
+        pub fn new(path: SystemPath, rclone_instance: Arc::<Mutex::<RCloneManager>>) -> DirectoryTracker {
             return DirectoryTracker{path: path,
-                                    handles: Arc::new(Mutex::new(Vec::<FindChangeNotificationHandle>::new())),
                                     thread_control: Arc::new(Mutex::new(RESUME_THREAD)),
-                                    dir_handle: Arc::new(INVALID_HANDLE_VALUE)};
+                                    dir_handle: Arc::new(INVALID_HANDLE_VALUE),
+                                    consumer: Arc::new(Mutex::new(FileEventConsumer::new(rclone_instance.clone())))};
         }
 
         /// TODO add error handling
         pub fn stop_tracking(&mut self) {
             let mut control = self.thread_control.lock().unwrap();
             *control = KILL_THREAD;
+            self.consumer.lock().unwrap().pause();
+            self.consumer.lock().unwrap().clear();
            // let handles = self.handles.lock().unwrap();
             /*unsafe {
                 for x in &*handles {
@@ -80,8 +83,14 @@ pub mod rustssh {
             self.path = path.clone();
             let thread_flag = self.thread_control.clone();
             let shared_dir_handle = self.dir_handle.clone();
+            let shared_consumer = self.consumer.clone();
 
             spawn(move || {
+                // start consumer
+                {
+                    shared_consumer.lock().unwrap().start();
+                }
+
                 let mut buffer: Vec::<u8> = Vec::new();
                 buffer.resize(2048, 0);
                 let mut bytes_out:  u32 = 0u32;
@@ -125,14 +134,7 @@ pub mod rustssh {
                                 while true && bytes_out != 0 {
                                     let info: *const FILE_NOTIFY_INFORMATION = &buffer[index as usize] as *const u8 as *const _ as *const FILE_NOTIFY_INFORMATION; 
                                     let filename = DirectoryTracker::filename_from_notify_obj(&*info);
-                                    match (*info).Action {
-                                        FILE_ACTION_ADDED => println!("{} added", filename),
-                                        FILE_ACTION_REMOVED => println!("{} Deleted", filename),
-                                        FILE_ACTION_RENAMED_NEW_NAME => println!("{} rename new", filename),
-                                        FILE_ACTION_RENAMED_OLD_NAME => println!("{} renamed old", filename),
-                                        FILE_ACTION_MODIFIED => println!("{} modified", filename),
-                                        _=> println!("Error")
-                                    }
+                                    shared_consumer.lock().unwrap().add_event(FileEvent::new((*info).Action, filename));
                                     if (*info).NextEntryOffset == 0 {
                                         break;
                                     }
