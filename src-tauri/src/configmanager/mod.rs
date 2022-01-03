@@ -1,11 +1,9 @@
 pub mod rustssh {
-use crate::systempaths::rustssh::SystemPath;
 use std::collections::HashMap;
 use std::fs::read_dir;
 use std::fs::read_to_string;
 use std::fs::write;
-
-type IOError = std::io::Error;
+use crate::*;
 
 #[derive(Clone)]
 pub struct RemitConfig {
@@ -16,7 +14,7 @@ pub struct RemitConfig {
     pub port: String,
 
     /// contains path from default directory to config not currently used
-    pub path: SystemPath
+    pub path: Remit::SystemPath
 }
 
 /// manage remit configurations
@@ -27,7 +25,7 @@ pub struct ConfigManager{
     configs: HashMap<String, RemitConfig>,
 
     /// where to find the configurations to load
-    config_path: SystemPath
+    config_path: Remit::SystemPath
 }
 
 #[allow(dead_code)]
@@ -35,7 +33,7 @@ impl ConfigManager {
 
     /// construct config manager with default path set to ./configs
     pub fn new() -> ConfigManager {
-        let mut manager = ConfigManager{configs: HashMap::new(), config_path: SystemPath::new()};
+        let mut manager = ConfigManager{configs: HashMap::new(), config_path: Remit::SystemPath::new()};
         manager.config_path.pushd("configs".to_string());
         return manager;
     }
@@ -108,7 +106,7 @@ impl RemitConfig {
         return RemitConfig{username: String::new(), password: String::new(),
                                 host: String::new(), name: String::new(),
                                 port: String::new(),
-                                path: SystemPath::new()};
+                                path: Remit::SystemPath::new()};
     }
 }
 

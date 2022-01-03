@@ -4,10 +4,7 @@ use std::process::Command;
 use std::string::ToString;
 use std::fmt::Debug;
 use std::os::windows::process::CommandExt;
-use crate::sessionmanager::rustssh::Directory;
-
-type IOError = std::io::Error;
-type IOErrorKind = std::io::ErrorKind;
+use crate::*;
 
 /// MS Windows flag for process creation, prevents window from being called
 /// when starting up separate programs
@@ -181,7 +178,7 @@ impl RCloneManager {
     }
 
     /// Attempt to download a remote file using directory and filename
-    pub fn download_remote_file(&mut self, d: &mut Directory, filename: String) -> Result<std::process::ExitStatus, IOError>{
+    pub fn download_remote_file(&mut self, d: &mut Remit::Directory, filename: String) -> Result<std::process::ExitStatus, IOError>{
         let mut file_path = d.path.clone();
         let mut local_path = file_path.clone();
         if self.custom_path.len() > 0 {
@@ -197,7 +194,7 @@ impl RCloneManager {
         return Ok(output.status);
     }
 
-    pub fn upload_local_file(&mut self, d: &mut Directory, filename: String) -> Result<std::process::ExitStatus, IOError>{
+    pub fn upload_local_file(&mut self, d: &mut Remit::Directory, filename: String) -> Result<std::process::ExitStatus, IOError>{
         let file_path = d.path.clone();
         let mut local_path = file_path.clone();
         if self.custom_path.len() > 0 {
