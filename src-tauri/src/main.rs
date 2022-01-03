@@ -11,23 +11,18 @@
 use tauri::{plugin::{Plugin, Result as PluginResult}, Runtime, PageLoadPayload, Window, Invoke, AppHandle};
 use std::{sync::Mutex, sync::MutexGuard};
 use once_cell::sync::Lazy;
-use std::io::Error;
 use std::path::Path;
 use std::collections::HashMap;
-mod configmanager;
-mod sessionmanager;
-mod syncmanager;
-mod systempaths;
-mod manager;
-mod filetracker;
-mod fileeventconsumer;
+
+use app::*;
+
 /// Mutex controlled Manager. Used to make all api calls in the backend
 /// once control is given
-type ApiRef<'a> = MutexGuard<'a, manager::rustssh::Manager>;
+type ApiRef<'a> = MutexGuard<'a, RemitManager>;
 
 /// Api that contains global state of the program
-static REMIT_API: Lazy<Mutex<manager::rustssh::Manager>> = Lazy::new(|| {
-  let manager = manager::rustssh::Manager::new_empty().unwrap();
+static REMIT_API: Lazy<Mutex<RemitManager>> = Lazy::new(|| {
+  let manager = RemitManager::new_empty().unwrap();
   return Mutex::new(manager);
 });
 
@@ -38,7 +33,7 @@ struct Remit<R: Runtime> {
 
 
   /// Helper method to grab and use the globa Manager
-  fn run_api_command<T>(output:&mut T, callback: &dyn Fn(&mut T, &mut ApiRef) -> Result<(), std::io::Error> ) -> Result<(), String> {
+  fn run_api_command<T>(output:&mut T, callback: &dyn Fn(&mut T, &mut ApiRef) -> Result<(), IOError> ) -> Result<(), String> {
     match REMIT_API.lock() {
       Ok(mut api)=>{
         match callback(output, &mut api) {
@@ -54,7 +49,7 @@ struct Remit<R: Runtime> {
   #[tauri::command]
   async fn download(filename: String, open: Option<bool>) -> Result<(), String> {
     let mut var: u32 = 0;
-    let r = run_api_command::<u32>(&mut var, &|_output: &mut u32, api: &mut ApiRef| -> Result<(), std::io::Error>{
+    let r = run_api_command::<u32>(&mut var, &|_output: &mut u32, api: &mut ApiRef| -> Result<(), IOError>{
       api.download_file(filename.clone(), open)?;
       return Ok(());
     })?;
@@ -64,7 +59,7 @@ struct Remit<R: Runtime> {
   /// Push filename/directory in global api
   #[tauri::command]
   async fn pushd(d: String) -> Result<(), String> {
-    run_api_command::<String>(&mut d.clone(), &|d: &mut String, api: &mut ApiRef| -> Result<(), Error> {
+    run_api_command::<String>(&mut d.clone(), &|d: &mut String, api: &mut ApiRef| -> Result<(), IOError> {
       api.navigate(d.clone())?;
       return Ok(());
     })?;
@@ -75,7 +70,7 @@ struct Remit<R: Runtime> {
   #[tauri::command]
   async fn list_current_directory() -> Result<Vec<HashMap<String, String>>, String> {
     let mut filenames: Vec<HashMap<String, String>> = Vec::new();
-    run_api_command::<Vec::<HashMap::<String,String>>>(&mut filenames, &|filenames: &mut Vec<HashMap<String, String>>, api: &mut ApiRef| -> Result<(), Error>{
+    run_api_command::<Vec::<HashMap::<String,String>>>(&mut filenames, &|filenames: &mut Vec<HashMap<String, String>>, api: &mut ApiRef| -> Result<(), IOError>{
       api.get_directory()?;
       for entry in &api.dir.files {
         let mut file = HashMap::<String,String>::new();
@@ -93,7 +88,7 @@ struct Remit<R: Runtime> {
   #[tauri::command]
   async fn connect(username: String, host: String, port: String, password: String) -> Result<(), String> {
     let mut fields = vec![host, username, password, port];
-    let _r = run_api_command::<Vec::<String>>(&mut fields, &|fields: &mut Vec::<String>, api: &mut ApiRef|-> Result<(), std::io::Error>{
+    let _r = run_api_command::<Vec::<String>>(&mut fields, &|fields: &mut Vec::<String>, api: &mut ApiRef|-> Result<(), IOError>{
       api.set_params(fields[0].clone(), fields[1].clone(), Some(fields[2].clone()), Some("default_remitconfig".to_string()), None, Some(fields[3].clone()))?;
       api.connect()?;
       return Ok(());
@@ -114,7 +109,7 @@ struct Remit<R: Runtime> {
   #[tauri::command]
   async fn get_config_names() -> Result<Vec<HashMap<String, String>>, String> {
     let mut configs = Vec::<HashMap::<String,String>>::new();
-    run_api_command::<Vec::<HashMap::<String,String>>>(&mut configs, &|json: &mut Vec::<HashMap::<String,String>>,api: &mut ApiRef| -> Result<(), std::io::Error> {
+    run_api_command::<Vec::<HashMap::<String,String>>>(&mut configs, &|json: &mut Vec::<HashMap::<String,String>>,api: &mut ApiRef| -> Result<(), IOError> {
       //let mut json = Vec::<HashMap<String, String>>::new();
       for c in api.get_configs() {
         let mut config_json = HashMap::<String,String>::new();
@@ -134,7 +129,7 @@ struct Remit<R: Runtime> {
   #[tauri::command]
   fn disconnect() -> Result<(), String>{
     let mut var = 1u8;
-    run_api_command::<u8>(&mut var, &|_var: &mut u8, api:&mut ApiRef| -> Result<(), std::io::Error> {
+    run_api_command::<u8>(&mut var, &|_var: &mut u8, api:&mut ApiRef| -> Result<(), IOError> {
       api.disconnect()?;
       return Ok(());
     })?;

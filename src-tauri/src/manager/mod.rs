@@ -1,17 +1,11 @@
 
 
 pub mod rustssh{
-use windows::Win32::Storage::FileSystem::{FILE_NOTIFY_CHANGE_ATTRIBUTES, FILE_NOTIFY_CHANGE_LAST_ACCESS};
-use crate::systempaths::rustssh::SystemPath;
-use crate::filetracker::rustssh::DirectoryTracker;
-use crate::syncmanager::rustssh::*;
-use crate::sessionmanager::rustssh::*;
-use crate::configmanager::rustssh::{ConfigManager, RemitConfig};
 use std::process::Command;
 use std::env::current_dir;
 use std::sync::{Arc, Mutex};
-type IOError = std::io::Error;
-type IOErrorKind = std::io::ErrorKind;
+
+use crate::*;
 
 /// Primary manager over the ssh, rclone and config managers. 
 /// 
@@ -19,17 +13,17 @@ type IOErrorKind = std::io::ErrorKind;
 /// as an interface to communicate with the other managers
 pub struct Manager {
     /// Ssh session manager to manage ssh commands to the host
-    ssh_m: SessionManager,
+    ssh_m: Remit::SessionManager,
     /// rclone manager. Used to interface and use commands with the rclone binary
-    rclone_m: Arc::<Mutex::<RCloneManager>>,
+    rclone_m: Arc::<Mutex::<Remit::RCloneManager>>,
 
     /// Load Remit configs
-    config_m: ConfigManager,
+    config_m: Remit::ConfigManager,
 
-    /// Directory for tracking current path in the remote computer
-    pub dir: Directory,
+    /// Remit::Directory for tracking current path in the remote computer
+    pub dir: Remit::Directory,
 
-    file_tracker: DirectoryTracker,
+    file_tracker: Remit::DirectoryTracker,
 
     custom_path: String
 }
@@ -39,14 +33,14 @@ impl Manager {
 
     /// Create a Manager with only Remit configs loaded
     pub fn new_empty() -> Result<Manager, IOError> {
-        let mut path = SystemPath::new();
+        let mut path = Remit::SystemPath::new();
         path.set_path(".remote".to_string());
-        let rclone_instance = Arc::new(Mutex::new(RCloneManager::new(None, Some(".remote".to_string()))));
-        let mut m = Manager{ssh_m: SessionManager::new(None, None, None)?,
+        let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(None, Some(".remote".to_string()))));
+        let mut m = Manager{ssh_m: Remit::SessionManager::new(None, None, None)?,
                         rclone_m: rclone_instance.clone(),
-                        config_m: ConfigManager::new(),
-                        dir: Directory::new(None),
-                        file_tracker: DirectoryTracker::new(path, rclone_instance.clone()),
+                        config_m: Remit::ConfigManager::new(),
+                        dir: Remit::Directory::new(None),
+                        file_tracker: Remit::DirectoryTracker::new(path, rclone_instance.clone()),
                         custom_path: ".remote".to_string()/*String::new()*/};
         m.config_m.load_configs()?;
         return Ok(m);
@@ -97,7 +91,7 @@ impl Manager {
         if !self.dir.path.set_path(self.ssh_m.run_command("pwd".to_string()).unwrap()) {
             println!("Error setting path");
         }
-        let mut path = SystemPath::new();
+        let mut path = Remit::SystemPath::new();
         path.pushd(self.custom_path.clone());
         self.file_tracker.start_tracking(&mut path)?;
         return Ok(());
@@ -138,6 +132,7 @@ impl Manager {
     /// The file must exist in the path currently in Manager's dir file
     pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), IOError>{
         let r = self.rclone_m.lock().unwrap().download_remote_file(&mut self.dir, name.clone());
+        // on a success, if open is set then open the file using windows explorer ( allows a chance to set the default application)
         if r?.success() {
             open.map(|open: bool| {
                 if open {
@@ -157,19 +152,20 @@ impl Manager {
         }
     }
 
+    /// upload file  in current directory
     pub fn upload_file(&mut self, name: String) -> Result<(), IOError>{
         let r = self.rclone_m.lock().unwrap().upload_local_file(&mut self.dir, name.clone());
         if r?.success() {
             return Ok(());
         } else {
-            return Err(IOError::new(IOErrorKind::Other, "error during download"));
+            return Err(IOError::new(IOErrorKind::Other, "error during upload"));
         }
     }
 
     /// get a list of remit configurations
     /// 
     /// returns a clone set of remit configurations
-    pub fn get_configs(&mut self) -> Vec<RemitConfig>{
+    pub fn get_configs(&mut self) -> Vec<Remit::Config>{
         return self.config_m.get_configs();
     }
 }
