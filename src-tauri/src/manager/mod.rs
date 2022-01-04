@@ -35,7 +35,7 @@ impl Manager {
     pub fn new_empty() -> Result<Manager, IOError> {
         let mut path = Remit::SystemPath::new();
         path.set_path(".remote".to_string());
-        let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(None, Some(".remote".to_string()))));
+        let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(None, None)));
         let mut m = Manager{ssh_m: Remit::SessionManager::new(None, None, None)?,
                         rclone_m: rclone_instance.clone(),
                         config_m: Remit::ConfigManager::new(),
@@ -92,7 +92,9 @@ impl Manager {
             println!("Error setting path");
         }
         let mut path = Remit::SystemPath::new();
-        path.pushd(self.custom_path.clone());
+        path.pushd(self.rclone_m.lock().unwrap().chosen_config.clone());
+        path.pushd(".remote".to_string());
+        println!("tracking local changes at: {}", path.get_windows_path());
         self.file_tracker.start_tracking(&mut path)?;
         return Ok(());
     }
@@ -131,18 +133,18 @@ impl Manager {
     /// 
     /// The file must exist in the path currently in Manager's dir file
     pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), IOError>{
-        let r = self.rclone_m.lock().unwrap().download_remote_file(&mut self.dir, name.clone());
+        let mut local_path = Remit::SystemPath::new();
+        local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        let r = self.rclone_m.lock().unwrap().download_remote_file(local_path.clone(), remote_path, name.clone());
         // on a success, if open is set then open the file using windows explorer ( allows a chance to set the default application)
         if r?.success() {
             open.map(|open: bool| {
                 if open {
-                    let mut full_path = self.dir.path.clone();
-                    full_path.pushd(name);
-                    if self.custom_path.len() > 0 {
-                        full_path.prepd(self.custom_path.clone());
-                    }
+                    local_path.pushd(name);
                     let _output = Command::new("explorer")
-                    .arg(format!("{}\\{}", current_dir().unwrap().to_str().unwrap(), full_path.get_windows_path_local()))
+                    .arg(format!("{}\\{}", current_dir().unwrap().to_str().unwrap(), local_path.get_windows_path_local()))
                     .output();
                 }
             });
@@ -154,7 +156,7 @@ impl Manager {
 
     /// upload file  in current directory
     pub fn upload_file(&mut self, name: String) -> Result<(), IOError>{
-        let r = self.rclone_m.lock().unwrap().upload_local_file(&mut self.dir, name.clone());
+        let r = self.rclone_m.lock().unwrap().upload_local_file(self.dir.path.clone(), self.dir.path.clone(), name.clone());
         if r?.success() {
             return Ok(());
         } else {
