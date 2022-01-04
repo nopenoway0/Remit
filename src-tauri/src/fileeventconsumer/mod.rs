@@ -2,19 +2,24 @@ pub mod rustssh {
     use windows::Win32::Storage::FileSystem::*;
     use std::sync::{Arc, Mutex};
     use std::thread::*;
+    use std::fs::metadata;
     use crate::*;
     /// stores a file action event from the win32 ReadRDirectoryW api
     pub struct FileEvent {
         /// type of win32 file change event
         event_type: FILE_ACTION,
+
+        /// file path as it appears on the remote source
+        remote_file_path: String,
+
         /// filename - is a relative path to the given file/directory
-        file_name: String
+        local_file_path: String
     }
 
     impl FileEvent {
         /// create a new FileEvent given the FILE_ACTION and filename - should be a relative path to the file
-        pub fn new(event_type: FILE_ACTION, file_name: String) -> FileEvent {
-            return FileEvent{event_type: event_type, file_name: file_name};
+        pub fn new(event_type: FILE_ACTION, local_path: String, remote_path: String) -> FileEvent {
+            return FileEvent{event_type: event_type, local_file_path: local_path, remote_file_path: remote_path};
         }
     }
 
@@ -32,30 +37,45 @@ pub mod rustssh {
     /// and a shared Remit::RCloneManager to perform the necessary syncing operations with the
     /// corresponding file event
     fn process_event(instance: &Arc::<Mutex::<Remit::RCloneManager>>, event: &FileEvent) {
-        println!("processing event for {}", event.file_name);
-        match event.event_type {
-            FILE_ACTION_ADDED => {
-                let mut dir = Remit::Directory::new(None);
-                dir.path = Remit::SystemPath::new();
-                dir.path.set_win_path(format!("\\{}", event.file_name.clone()));
-                let filename = dir.path.popd();
-                let r = instance.lock().unwrap().upload_local_file(&mut dir, filename);
-                if r.is_err() {
-                    println!("Error uploading file");
+        // TODO error handling for getting current directory path
+        match metadata(event.local_file_path.clone()){
+            Ok(v) => {
+                if v.is_dir() {
+                    println!("Event concerning directory - skipping");
+                    return;
                 }
-            },
-            FILE_ACTION_MODIFIED => {
-                let mut dir = Remit::Directory::new(None);
-                dir.path = Remit::SystemPath::new();
-                dir.path.set_win_path(format!("\\{}", event.file_name.clone()));
-                let filename = dir.path.popd();
-                let r = instance.lock().unwrap().upload_local_file(&mut dir, filename);
+            }, 
+            Err(e) => {
+                println!("{}: {}", e, event.local_file_path.clone());
+                return;
+            }
+        }
+        println!("{}", event.remote_file_path);
+        match event.event_type {
+            FILE_ACTION_ADDED | FILE_ACTION_MODIFIED=> {
+                let mut local_dir = Remit::Directory::new(None);
+                let mut remote_dir = Remit::Directory::new(None);
+                local_dir.path.set_win_path(format!("\\{}", event.local_file_path.clone()));
+                remote_dir.path.set_win_path(format!("\\{}", event.remote_file_path.clone()));
+                // remove filename so not interpreted as directory
+                remote_dir.path.popd();
+                let filename = local_dir.path.popd();
+                let r = instance.lock().unwrap().upload_local_file(local_dir.path.clone(), remote_dir.path.clone(), filename);
                 if r.is_err() {
                     println!("Error uploading file");
                 }  
             },
-            _ => {
-
+            FILE_ACTION_REMOVED => {
+                println!("removed");
+            }, 
+            FILE_ACTION_RENAMED_NEW_NAME => {
+                println!("rename new");
+            },
+            FILE_ACTION_RENAMED_OLD_NAME => {
+                println!("Rename old");
+            },
+            e => {
+                println!("Other event occured {}", e.0);
             }
         }
     }
