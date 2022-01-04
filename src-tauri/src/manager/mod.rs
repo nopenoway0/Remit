@@ -1,17 +1,11 @@
 
 
 pub mod rustssh{
-
-use crate::syncmanager::rustssh::*;
-use crate::sessionmanager::rustssh::*;
-use crate::sessionmanager::rustssh::Directory;
-use crate::configmanager::rustssh::ConfigManager;
-use crate::configmanager::rustssh::RemitConfig;
 use std::process::Command;
 use std::env::current_dir;
+use std::sync::{Arc, Mutex};
 
-type IOError = std::io::Error;
-type IOErrorKind = std::io::ErrorKind;
+use crate::*;
 
 /// Primary manager over the ssh, rclone and config managers. 
 /// 
@@ -19,15 +13,19 @@ type IOErrorKind = std::io::ErrorKind;
 /// as an interface to communicate with the other managers
 pub struct Manager {
     /// Ssh session manager to manage ssh commands to the host
-    ssh_m: SessionManager,
+    ssh_m: Remit::SessionManager,
     /// rclone manager. Used to interface and use commands with the rclone binary
-    rclone_m: RCloneManager,
+    rclone_m: Arc::<Mutex::<Remit::RCloneManager>>,
 
     /// Load Remit configs
-    config_m: ConfigManager,
+    config_m: Remit::ConfigManager,
 
-    /// Directory for tracking current path in the remote computer
-    pub dir: Directory
+    /// Remit::Directory for tracking current path in the remote computer
+    pub dir: Remit::Directory,
+
+    file_tracker: Remit::DirectoryTracker,
+
+    custom_path: String
 }
 
 #[allow(dead_code)]
@@ -35,10 +33,15 @@ impl Manager {
 
     /// Create a Manager with only Remit configs loaded
     pub fn new_empty() -> Result<Manager, IOError> {
-        let mut m = Manager{ssh_m: SessionManager::new(None, None, None)?,
-                        rclone_m: RCloneManager::new(None),
-                        config_m: ConfigManager::new(),
-                        dir: Directory::new(None)};
+        let mut path = Remit::SystemPath::new();
+        path.set_path(".remote".to_string());
+        let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(None, None)));
+        let mut m = Manager{ssh_m: Remit::SessionManager::new(None, None, None)?,
+                        rclone_m: rclone_instance.clone(),
+                        config_m: Remit::ConfigManager::new(),
+                        dir: Remit::Directory::new(None),
+                        file_tracker: Remit::DirectoryTracker::new(path, rclone_instance.clone()),
+                        custom_path: ".remote".to_string()/*String::new()*/};
         m.config_m.load_configs()?;
         return Ok(m);
     }
@@ -57,20 +60,20 @@ impl Manager {
                         pem_file: Option<String>, port_option: Option<String>) -> Result<(), IOError> {
 
         // load existing rclone configs by parsing rclone_m config show
-        self.rclone_m.load_configs()?;
+        self.rclone_m.lock().unwrap().load_configs()?;
         let mut full_host = host.clone();
         full_host = format!("{}:{}", full_host, port_option.unwrap_or("22".to_string()));
 
         // if rclone_config doesn't exist create it and then set the name, otherwise just set the config name
         rclone_config.ok_or_else(||return IOError::new(IOErrorKind::Other, "no config")).and_then(|config: String| -> Result<String, IOError>{
-            self.rclone_m.set_config(config.clone()).or_else(|_error: IOError| -> Result<(), IOError> {
-                self.rclone_m.create_sftp_config(config.clone(),
+            self.rclone_m.lock().unwrap().set_config(config.clone()).or_else(|_error: IOError| -> Result<(), IOError> {
+                self.rclone_m.lock().unwrap().create_sftp_config(config.clone(),
                                                     username.clone(),
                                                     host.clone(),
                                                     password.clone(), pem_file)?;
                 return Ok(());
             })?;
-            self.rclone_m.set_config(config.clone())?;
+            self.rclone_m.lock().unwrap().set_config(config.clone())?;
             return Ok("".to_string());
         })?;
 
@@ -85,12 +88,21 @@ impl Manager {
     /// to have the absolute path by parsing pwd
     pub fn connect(&mut self) -> Result<(), IOError>{
         self.ssh_m.connect()?;
-        self.dir.path.set_path(self.ssh_m.run_command("pwd".to_string()).unwrap());
+        if !self.dir.path.set_path(self.ssh_m.run_command("pwd".to_string()).unwrap()) {
+            println!("Error setting path");
+        }
+        let mut path = Remit::SystemPath::new();
+        path.pushd(self.rclone_m.lock().unwrap().chosen_config.clone());
+        path.pushd(".remote".to_string());
+        println!("tracking local changes at: {}", path.get_windows_path());
+        self.file_tracker.start_tracking(&mut path)?;
         return Ok(());
     }
 
     /// disconnect from current ssh endpoint
+    /// TODO add error handling for stop tracking
     pub fn disconnect(&mut self) -> Result<(), IOError> {
+        self.file_tracker.stop_tracking();
         return self.ssh_m.disconnect();
     }
 
@@ -121,14 +133,18 @@ impl Manager {
     /// 
     /// The file must exist in the path currently in Manager's dir file
     pub fn download_file(&mut self, name: String, open: Option<bool>) -> Result<(), IOError>{
-        let r = self.rclone_m.download_remote_file(&mut self.dir, name.clone());
+        let mut local_path = Remit::SystemPath::new();
+        local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        let r = self.rclone_m.lock().unwrap().download_remote_file(local_path.clone(), remote_path, name.clone());
+        // on a success, if open is set then open the file using windows explorer ( allows a chance to set the default application)
         if r?.success() {
             open.map(|open: bool| {
                 if open {
-                    let mut full_path = self.dir.path.clone();
-                    full_path.pushd(name);
+                    local_path.pushd(name);
                     let _output = Command::new("explorer")
-                    .arg(format!("{}{}", current_dir().unwrap().to_str().unwrap(), full_path.get_windows_path()))
+                    .arg(format!("{}\\{}", current_dir().unwrap().to_str().unwrap(), local_path.get_windows_path_local()))
                     .output();
                 }
             });
@@ -138,10 +154,20 @@ impl Manager {
         }
     }
 
+    /// upload file  in current directory
+    pub fn upload_file(&mut self, name: String) -> Result<(), IOError>{
+        let r = self.rclone_m.lock().unwrap().upload_local_file(self.dir.path.clone(), self.dir.path.clone(), name.clone());
+        if r?.success() {
+            return Ok(());
+        } else {
+            return Err(IOError::new(IOErrorKind::Other, "error during upload"));
+        }
+    }
+
     /// get a list of remit configurations
     /// 
     /// returns a clone set of remit configurations
-    pub fn get_configs(&mut self) -> Vec<RemitConfig>{
+    pub fn get_configs(&mut self) -> Vec<Remit::Config>{
         return self.config_m.get_configs();
     }
 }

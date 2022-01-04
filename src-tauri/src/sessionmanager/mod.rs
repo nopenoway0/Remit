@@ -1,14 +1,11 @@
 
 pub mod rustssh {
-use crate::systempaths::rustssh::SystemPath;
 use ssh2::*;
 use std::net::TcpStream;
 use std::io::Read;
 use std::fmt::Debug;
 use std::collections::BTreeMap;
-
-type IOError = std::io::Error;
-type IOErrorKind = std::io::ErrorKind;
+use crate::*;
 
 /// denotes the type of file
 #[derive(Debug, Clone)]
@@ -101,7 +98,7 @@ impl RemitFile {
 #[derive(Debug, Clone)]
 pub struct Directory {
     pub files: BTreeMap<String, RemitFile>,
-    pub path: SystemPath
+    pub path: Remit::SystemPath
 }
 
 #[allow(dead_code)]
@@ -116,7 +113,7 @@ impl Directory {
     /// construct a new directory. It will be empty unless an string, obtained by running ls -al, is passed
     /// to it
     pub fn new(str_input: Option<String>) -> Directory{
-        let mut dir = Directory{files: BTreeMap::new(), path: SystemPath::new()};
+        let mut dir = Directory{files: BTreeMap::new(), path: Remit::SystemPath::new()};
         if str_input.is_some() {
             dir.files = Directory::parse_string(str_input.unwrap());
         }
