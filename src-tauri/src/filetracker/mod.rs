@@ -10,7 +10,7 @@ pub mod rustssh {
     use crate::*;
 
     pub struct DirectoryTracker {
-        path: Remit::SystemPath,
+        path: Arc::<Mutex::<Remit::SystemPath>>,
         thread_control: Arc<Mutex::<ThreadStatus>>,
         dir_handle: Arc<HANDLE>,
         consumer: Arc::<Mutex::<Remit::FileEventConsumer>>
@@ -18,7 +18,7 @@ pub mod rustssh {
 
     impl DirectoryTracker {
         pub fn new(path: Remit::SystemPath, rclone_instance: Arc::<Mutex::<Remit::RCloneManager>>) -> DirectoryTracker {
-            return DirectoryTracker{path: path,
+            return DirectoryTracker{path: Arc::new(Mutex::new(path)),
                                     thread_control: Arc::new(Mutex::new(ThreadStatus::Resume)),
                                     dir_handle: Arc::new(INVALID_HANDLE_VALUE),
                                     consumer: Arc::new(Mutex::new(Remit::FileEventConsumer::new(rclone_instance.clone())))};
@@ -75,10 +75,12 @@ pub mod rustssh {
 
             // set variables for multithreading
             *self.thread_control.lock().unwrap() = ThreadStatus::Resume;
-            self.path = path.clone();
+
+            (*self.path.lock().unwrap()) = path.clone();
             let thread_flag = self.thread_control.clone();
             let shared_dir_handle = self.dir_handle.clone();
             let shared_consumer = self.consumer.clone();
+            let thread_path = self.path.clone();
 
             // start thread to monitor any changes. Changes are pushed into the consumers queue in fileeventconsumer
             spawn(move || -> Result<(), IOError>{
@@ -133,8 +135,12 @@ pub mod rustssh {
                         while true && bytes_out != 0 {
                             let info: *const FILE_NOTIFY_INFORMATION = &buffer[index as usize] as *const u8 as *const _ as *const FILE_NOTIFY_INFORMATION; 
                             unsafe {
-                                let filename = DirectoryTracker::filename_from_notify_obj(&*info);
-                                shared_consumer.lock().unwrap().add_event(Remit::FileEvent::new((*info).Action, filename));
+                                // only push valid actions not 0
+                                if (*info).Action.0 != 0 {
+                                    let filename = DirectoryTracker::filename_from_notify_obj(&*info);
+                                    shared_consumer.lock().unwrap().add_event(Remit::FileEvent::new((*info).Action, format!("{}\\{}", (*thread_path.lock().unwrap()).get_windows_path(), filename),
+                                                                                                        filename.clone()));
+                                }
                                 if (*info).NextEntryOffset == 0 {
                                     break;
                                 }
