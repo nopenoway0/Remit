@@ -1,18 +1,17 @@
 import * as React from 'react'
 import { Component } from 'react/cjs/react.production.min'
-import {Button, Stack, TextField, Box, Backdrop, CircularProgress} from '@mui/material'
+import {Stack, TextField, Box, Backdrop, CircularProgress} from '@mui/material'
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import OkDialog from './OkDialog'
 import ButtonLoader from './ButtonLoader'
 import DynamicDrawer from './DynamicDrawer'
-import logo from './logo.svg'
-import tauriCircles from './tauri.svg'
-import tauriWord from './wordmark.svg'
-import { emit, listen } from '@tauri-apps/api/event'
-import { getCurrent, WebviewWindow } from '@tauri-apps/api/window'
 import { invoke } from '@tauri-apps/api/tauri';
 import './App.css'
 
+/**
+ * Manages the login state of the application. Loads saved ssh configurations using
+ * the rust backend method get_config_names
+ */
 class Login extends Component{
 
   componentDidMount() {
@@ -79,29 +78,29 @@ class Login extends Component{
     return invoke("plugin:Remit|connect", {username: username, host: host, port: port, password: password});
   }
 
+  handleSuccess(r) {
+    //console.log(r); 
+    this.enabledInputs();
+    this.props.loggedInCallback();
+  }
+
+  handleError(e) {
+    this.showDialog(e); 
+    this.enabledInputs();
+  }
+
+  hideDialog() {
+    this.setState({displayDialog: false});
+  }
+
   render() {
-      const handle_success = (r) => {
-        console.log(r); 
-        this.enabledInputs();
-        this.props.loggedInCallback();
-      };
-
-      const handle_error= (e) => {
-        this.showDialog(e); 
-        this.enabledInputs()
-      };
-
-      const hide_dialog = ()=> {
-        this.setState({displayDialog: false});
-      };
-
       return (
         <div className="App">
           <Box sx={{position:"fixed", bgcolor:"background.paper", borderRadius:"8px"}}>
             <AssignmentIcon sx={{position: "relative"}} onClick={()=>{this.setState({openConfigList: true})}}/>
           </Box>
           <DynamicDrawer onClose={()=>this.setState({openConfigList: false})} key="config_list" onClick={this.useConfig.bind(this)} contents={this.state.configs} open={this.state.openConfigList} type="map" />
-          <OkDialog key="logindialog" show={this.state.displayDialog} onClick={hide_dialog.bind(this)} title="Error Connecting" text={this.state.dialogText}></OkDialog>
+          <OkDialog key="logindialog" show={this.state.displayDialog} onClick={this.hideDialog.bind(this)} title="Error Connecting" text={this.state.dialogText}></OkDialog>
           <body className="App-header">
             <Box sx={{bgcolor: 'background.paper', overflow:'hidden', borderRadius:'12px', boxShadow: 1, display: 'flex',
                         flexDirection:{ xs: 'column', md: 'row'}}}>
@@ -110,7 +109,7 @@ class Login extends Component{
               <TextField key="password" disabled={!this.state.inputs} variant="standard" required label="Password" type="password" id="password" value={this.state.config.pass}></TextField>
               <TextField key="host" disabled={!this.state.inputs} variant="standard" required label="Host" id="host" value={this.state.config.host}/>
               <TextField key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}/>
-              <ButtonLoader onClick={this.connect.bind(this)} handleError={handle_error.bind(this)} handleSuccess={handle_success.bind(this)}/>
+              <ButtonLoader onClick={this.connect.bind(this)} handleError={this.handleError.bind(this)} handleSuccess={this.handleSuccess.bind(this)}/>
             </Stack>
             </Box>
           </body>
