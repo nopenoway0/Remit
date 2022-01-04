@@ -5,6 +5,9 @@ import { InsertDriveFileSharp } from '@mui/icons-material';
 import FolderSharpIcon from '@mui/icons-material/FolderSharp';
 import QuestionMarkSharpIcon from '@mui/icons-material/QuestionMarkSharp';
 
+/**
+ * A graphical representation of a RemitFile. A simple graphical file tile
+ */
 class RemitFile extends Component {
     constructor(props) {
         super(props);
