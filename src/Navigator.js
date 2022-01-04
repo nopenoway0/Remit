@@ -6,7 +6,11 @@ import RemitFile from "./RemitFile"
 import './App.css'
 import { ConnectingAirportsOutlined } from '@mui/icons-material';
 
-
+/**
+ * The navigator component is the main portion of the application. This shows the files in the current directory
+ * and processes clicks on these components. It gets its data from the Rust which uses a combination of ssh2 and rclone
+ * to get information on the remote server
+ */
 class Navigator extends Component {
 
     componentDidMount() {
@@ -41,7 +45,7 @@ class Navigator extends Component {
                 })
                 .catch((e)=>{
                     this.setState({lockScreen: false});
-                })
+                });
         } else if(type == "TypeFile") {
             invoke("plugin:Remit|download", {filename: file, open:true})
                 .then(() => {
@@ -54,17 +58,17 @@ class Navigator extends Component {
         }
     }
 
-    render() {
-        const disconnect = () => {
-            return invoke("plugin:Remit|disconnect")
-                .catch((e)=> {
-                    console.log(e);
-                })
-                .then((r) => {
-                    this.props.disconnectHandler();
-                })
-        };
+    disconnect() {
+        return invoke("plugin:Remit|disconnect")
+        .catch((e)=> {
+            console.log(e);
+        })
+        .then((r) => {
+            this.props.disconnectHandler();
+        })
+    }
 
+    render() {
         let files = [];
         this.state.files.forEach((file) => {
             if (file.name != ".") {
@@ -77,7 +81,7 @@ class Navigator extends Component {
         })
         return (<div className="App">
             <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
-            <Button onClick={disconnect.bind(this)}>Disconnect</Button>
+            <Button onClick={this.disconnect.bind(this)}>Disconnect</Button>
             <Grid container spacing={2}>
                     {files}
             </Grid>
