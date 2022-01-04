@@ -1,14 +1,15 @@
 import React from 'react'
 import { Component } from 'react/cjs/react.production.min'
 import { Drawer, List, ListItem, ListItemIcon, ListItemText } from '@mui/material';
+
+/**
+ * Dynamically created drawer that consists of a list of contents. Contents passed in (form of a map) are processed by key only
+ * The key is stored in a list item. When a list item is clicked, the key of that item is passed via the onClick method
+ */
 class DynamicDrawer extends Component {
 
     constructor(props) {
         super(props);
-    }
-
-    processList(input) {
-        return [];
     }
 
     processMap(input) {
@@ -22,7 +23,7 @@ class DynamicDrawer extends Component {
     render() {
         let contents = [];
         if (this.props.contents) {
-            contents = (this.props.type == "map") ? this.processMap(this.props.contents) : this.processList(this.props.contents);
+            contents = (this.props.type == "map") ? this.processMap(this.props.contents) : [];
         }
         return (
             <Drawer onClose={this.props.onClose} open={this.props.open}>
