@@ -1,6 +1,10 @@
 import * as React from 'react'
 import { Component } from 'react/cjs/react.production.min'
 import { Dialog, DialogTitle, Button, DialogContent } from '@mui/material';
+
+/**
+ * A simple dialog with an ok button. Once pressed the dialog will run the onClick command
+ */
 class OkDialog extends Component {
     
     constructor(props) {

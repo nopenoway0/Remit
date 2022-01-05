@@ -3,6 +3,10 @@ import { Button, CircularProgress } from '@mui/material';
 import { Component } from 'react/cjs/react.production.min';
 import { Box } from '@mui/system';
 
+/**
+ * Button class that on click disables itself and renders a loader on top. Takes in a sucess and error method. Before running these methods
+ * enable and hide the loader
+ */
 class ButtonLoader extends Component {
 
     constructor(props) {
@@ -10,6 +14,7 @@ class ButtonLoader extends Component {
         this.state = {disabled: false,
                         loading: false};
     }
+
 
     handleClick() {
         this.setState({disabled: true, loading: true});
