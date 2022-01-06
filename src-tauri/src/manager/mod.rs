@@ -128,6 +128,12 @@ impl Manager {
         return Ok(());
     }
 
+    /// add a config to the configuration manager and then save that configuration to the local file system
+    pub fn add_config(&mut self, config: RemitConfig) -> Result<(), IOError>{
+        self.config_m.insert_config(config.clone());
+        return self.config_m.save_config(config.name.clone().as_str());
+    }
+
     /// downloads a file that exists in the current path. If the open flag contains true
     /// use window explorer to try and open the file
     /// 
