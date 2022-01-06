@@ -1,6 +1,6 @@
 import * as React from 'react'
 import { Component } from 'react/cjs/react.production.min'
-import {Stack, TextField, Box, Backdrop, CircularProgress} from '@mui/material'
+import {Stack, TextField, Box, Backdrop, CircularProgress, Typography} from '@mui/material'
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import SaveIcon from '@mui/icons-material/Save';
 import OkDialog from './OkDialog'
@@ -103,6 +103,12 @@ class Login extends Component{
     this.setState({displayDialog: false});
   }
 
+  updateConfig(key, e) {
+    let c = this.state.config;
+    c[key] = e.target.value;
+    this.setState({config: c});
+  }
+
   openSaveManager() {
     this.props.openSaveManagerHandler(this.getFormData());
   }
@@ -120,10 +126,17 @@ class Login extends Component{
             <Box sx={{bgcolor: 'background.paper', overflow:'hidden', borderRadius:'12px', boxShadow: 1, display: 'flex',
                         flexDirection:{ xs: 'column', md: 'row'}}}>
             <Stack sx={{margin:4 }}>
-              <TextField key="username" disabled={!this.state.inputs} variant="standard" required label="Username" value={this.state.config.user} id="username" ></TextField>
-              <TextField key="password" disabled={!this.state.inputs} variant="standard" required label="Password" type="password" id="password" value={this.state.config.pass}></TextField>
-              <TextField key="host" disabled={!this.state.inputs} variant="standard" required label="Host" id="host" value={this.state.config.host}/>
-              <TextField key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}/>
+            <Typography sx={{color:'black'}} variant="h6" gutterBottom>
+                                Enter Connection Information
+              </Typography>
+              <TextField key="username" disabled={!this.state.inputs} variant="standard" required label="Username" onChange={this.updateConfig.bind(this, "user")} 
+                value={this.state.config.user} id="username"/>
+              <TextField key="password" disabled={!this.state.inputs} variant="standard" required label="Password" type="password" id="password" value={this.state.config.pass}
+                onChange={this.updateConfig.bind(this, "pass")}/>
+              <TextField key="host" disabled={!this.state.inputs} variant="standard" required label="Host" id="host" value={this.state.config.host}
+                onChange={this.updateConfig.bind(this, "host")}/>
+              <TextField key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}
+                onChange={this.updateConfig.bind(this, "port")}/>
               <ButtonLoader text={"Connect"} onClick={this.connect.bind(this)} handleError={this.handleError.bind(this)} handleSuccess={this.handleSuccess.bind(this)}/>
             </Stack>
             </Box>
