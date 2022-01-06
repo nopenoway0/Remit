@@ -47,7 +47,7 @@ class App extends Component{
     let page = <Login openSaveManagerHandler={this.openSaveManager.bind(this)} loggedInCallback={this.login.bind(this)}/>
     if (this.state.saveManagerData) {
       page = <SaveManager pass={this.state.saveManagerData.password} user={this.state.saveManagerData.username} 
-        host={this.state.saveManagerData.host} port={this.state.saveManagerData.port}/>
+        host={this.state.saveManagerData.host} port={this.state.saveManagerData.port} onClose={this.closeSaveManager.bind(this)}/>
     } else if (this.state.logged) {
       page = <Navigator disconnectHandler={this.logout.bind(this)}/>;
     }
