@@ -84,6 +84,18 @@ struct Remit<R: Runtime> {
     return Ok(filenames);
   }
 
+  /// use to save an incoming configuration to the local file system
+  #[tauri::command]
+  async fn save_config(user: String, password: String, port: String, host: String, name: String) -> Result<String, String>{
+    let mut c = RemitConfig::new();
+    c.username = user; c.password = password; c.port = port; c.host = host; c.name = name;
+    println!("running api command");
+    run_api_command::<RemitConfig>(&mut c, &|config: &mut RemitConfig, api: &mut ApiRef| -> Result<(), IOError> {
+      return api.add_config(config.clone());
+    })?;
+    return Ok("saved".to_string());
+  } 
+
   // the plugin custom command handlers if you choose to extend the API.
   #[tauri::command]
   async fn connect(username: String, host: String, port: String, password: String) -> Result<(), String> {
@@ -145,7 +157,8 @@ struct Remit<R: Runtime> {
                                                           check_dependencies, 
                                                           get_config_names,
                                                           list_current_directory,
-                                                          pushd, download]),
+                                                          pushd, download,
+                                                          save_config]),
       }
     }
   }
