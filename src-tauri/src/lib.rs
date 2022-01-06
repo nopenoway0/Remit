@@ -9,6 +9,7 @@ mod systempaths;
 pub type RemitManager = manager::rustssh::Manager;
 pub type IOError = std::io::Error;
 pub type IOErrorKind = std::io::ErrorKind;
+pub type RemitConfig = crate::configmanager::rustssh::RemitConfig;
 
 pub mod Remit{
     pub type SystemPath = crate::systempaths::rustssh::SystemPath;
