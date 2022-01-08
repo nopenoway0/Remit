@@ -5,6 +5,7 @@ import ButtonLoader from './ButtonLoader';
 import OkDialog from './OkDialog'
 import { invoke } from '@tauri-apps/api/tauri';
 import "./App.css"
+import RemitUtilities from './utils';
 var aesjs = require('aes-js')
 
 class SaveMananger extends Component {
@@ -18,14 +19,8 @@ class SaveMananger extends Component {
     }
 
     getFormData() {
-        let fields = {};
-        fields.host = document.getElementById("host").value;
-        fields.user = document.getElementById("username").value;
-        fields.port = document.getElementById("port").value;
-        fields.password = document.getElementById("password").value; 
-        fields.name = document.getElementById("name").value;
-        fields.key = document.getElementById("encrypt-key").value;
-        return fields;
+        let fields = ['host', 'username', 'port', 'password', 'name', 'encrypt_key'];
+        return RemitUtilities.extract_elements(fields);
     }
 
 
@@ -57,9 +52,12 @@ class SaveMananger extends Component {
                 rej(JSON.stringify(errors));
             } else {
                 let form_data = this.getFormData();
-                let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.key, 32));
-                let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
-                form_data.password = aesjs.utils.hex.fromBytes(aesCtr.encrypt(aesjs.utils.utf8.toBytes(form_data.password)));
+                form_data.encryptedpassword = form_data.password;
+                if (RemitUtilities.filled_string(form_data.encrypt_key)) {
+                    let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encrypt_key, 32));
+                    let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
+                    form_data.encryptedpassword = aesjs.utils.hex.fromBytes(aesCtr.encrypt(aesjs.utils.utf8.toBytes(form_data.password)));
+                }
                 invoke("plugin:Remit|save_config", form_data)
                     .then((e)=>res(e))
                     .catch((e)=>rej(e));
@@ -95,7 +93,7 @@ class SaveMananger extends Component {
                             <TextField autoComplete="false" key="password" variant="standard" required label="Password" type="password" id="password" defaultValue={this.props.pass}></TextField>
                             <TextField autoComplete="false" key="host" variant="standard" required label="Host" id="host" defaultValue={this.props.host}/>
                             <TextField autoComplete="false" key="port" variant="standard" required label="Port" id="port" defaultValue={this.props.port}/>
-                            <TextField autoComplete="false" type="password" key="encrypt-key" variant="standard" required label="Encryption Key" id="encrypt-key"/>
+                            <TextField autoComplete="false" type="password" key="encrypt-key" variant="standard" required label="Encryption Key" id="encrypt_key"/>
                             <TextField autoComplete="false" key="name" variant="standard" required label="Name" id="name" defaultValue={name}/>
                         </Stack>
                         <Box>
