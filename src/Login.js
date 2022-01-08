@@ -8,6 +8,7 @@ import ButtonLoader from './ButtonLoader'
 import DynamicDrawer from './DynamicDrawer'
 import { invoke } from '@tauri-apps/api/tauri';
 import './App.css'
+var aesjs = require('aes-js')
 
 /**
  * Manages the login state of the application. Loads saved ssh configurations using
@@ -67,25 +68,44 @@ class Login extends Component{
     this.setState({disableScreen: true});
   }
 
-  useConfig(name) {
-    this.setState({config: this.state.configs[name], openConfigList: false});
+  unlock(name) {
+    return new Promise((res, rej) => {
+      res("");
+    });
   }
+
+  useConfig(name) {
+    this.unlock(name)
+      .then((e) => {
+        this.setState({config: this.state.configs[name], openConfigList: false});
+      });
+  }
+
+  addPadding(str, desired_length) {
+    while (str.length < desired_length) {
+        str += "f";
+    }
+    return str;
+}
 
   getFormData() {
     let host = document.getElementById("host").value;
     let username = document.getElementById("username").value;
     let port = document.getElementById("port").value;
     let password = document.getElementById("password").value;    
-    return {username: username, host: host, port: port, password: password};
+    let key = document.getElementById("encrypt-key").value;
+    return {username: username, host: host, port: port, password: password, key:key};
   }
 
   connect(){
     this.disableInputs();
-    let host = document.getElementById("host").value;
-    let username = document.getElementById("username").value;
-    let port = document.getElementById("port").value;
-    let password = document.getElementById("password").value;
-    return invoke("plugin:Remit|connect", this.getFormData());
+    let form_data = this.getFormData();
+    if (form_data.key != undefined && form_data.key.length > 0) {
+      let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.key, 32));
+      let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
+      form_data.password = String.fromCharCode.apply(String, aesCtr.decrypt(aesjs.utils.hex.toBytes(form_data.password)));
+    }
+    return invoke("plugin:Remit|connect", form_data);
   }
 
   handleSuccess(r) {
@@ -129,14 +149,15 @@ class Login extends Component{
             <Typography sx={{color:'black'}} variant="h6" gutterBottom>
                                 Enter Connection Information
               </Typography>
-              <TextField key="username" disabled={!this.state.inputs} variant="standard" required label="Username" onChange={this.updateConfig.bind(this, "user")} 
+              <TextField autoComplete="false" key="username" disabled={!this.state.inputs} variant="standard" required label="Username" onChange={this.updateConfig.bind(this, "user")} 
                 value={this.state.config.user} id="username"/>
-              <TextField key="password" disabled={!this.state.inputs} variant="standard" required label="Password" type="password" id="password" value={this.state.config.pass}
+              <TextField autoComplete="false" key="password" disabled={!this.state.inputs} variant="standard" required label="Password" type="password" id="password" value={this.state.config.pass}
                 onChange={this.updateConfig.bind(this, "pass")}/>
-              <TextField key="host" disabled={!this.state.inputs} variant="standard" required label="Host" id="host" value={this.state.config.host}
+              <TextField autoComplete="false" key="host" disabled={!this.state.inputs} variant="standard" required label="Host" id="host" value={this.state.config.host}
                 onChange={this.updateConfig.bind(this, "host")}/>
-              <TextField key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}
+              <TextField autoComplete="false" key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}
                 onChange={this.updateConfig.bind(this, "port")}/>
+              <TextField autoComplete="false" key="encrypt-key" type="password" disabled={!this.state.inputs} variant="standard" label="Encryption Key" id="encrypt-key"/>
               <ButtonLoader text={"Connect"} onClick={this.connect.bind(this)} handleError={this.handleError.bind(this)} handleSuccess={this.handleSuccess.bind(this)}/>
             </Stack>
             </Box>
