@@ -26,12 +26,12 @@ class ButtonLoader extends Component {
             .catch((e) => {
                 this.setState({disabled: false, loading: false});
                 this.props.handleError(e);
-            })
+            });
     }
 
     render() {
         return (<Box sx={{position: "relative"}}>
-                    <Button disabled={this.state.disabled} onClick={this.handleClick.bind(this)} variant="contained">Connect</Button>
+                    <Button disabled={this.state.disabled} onClick={this.handleClick.bind(this)} variant="contained">{this.props.text}</Button>
                     {this.state.loading && <CircularProgress sx={{position: "absolute", left:80, top:4}} size={30}></CircularProgress>}
                 </Box>)
     }

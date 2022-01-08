@@ -61,10 +61,10 @@ impl ConfigManager {
         for line in contents.lines() {
             let mut args = line.split_whitespace();
             match args.next().unwrap() {
-                "user"=>config.username.push_str(args.next().unwrap()),
+                "user"=>config.username.push_str(&line[5..line.len()]),
                 "pass"=>config.password.push_str(&line[5..line.len()]),
                 "host"=>config.host.push_str(args.next().unwrap()),
-                "name"=>config.name.push_str(args.next().unwrap()),
+                "name"=>config.name.push_str(&line[5..line.len()]),
                 "port"=>config.port.push_str(args.next().unwrap()),
                 _=>{}
             }
@@ -81,7 +81,7 @@ impl ConfigManager {
             return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Config not found"));
         }
         let c = self.configs.get(name).unwrap();
-        let full_path = self.config_path.get_path() + "/" + name;
+        let full_path = self.config_path.get_path() + "/" + name + ".rcfg";
         let contents = format!("user {}\npass {}\nhost {}\nname {}\nport {}\n", c.username, c.password, c.host, c.name, c.port);
         match write(full_path, contents) {
             Ok(_)=>return Ok(()),

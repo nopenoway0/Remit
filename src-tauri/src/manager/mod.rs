@@ -128,6 +128,15 @@ impl Manager {
         return Ok(());
     }
 
+    /// add a config to the configuration manager and then save that configuration to the local file system
+    pub fn add_config(&mut self, config: RemitConfig, rclone_config: Option<RemitConfig>) -> Result<(), IOError>{
+        self.config_m.insert_config(config.clone());
+        let rclone_arg = rclone_config.unwrap_or(config.clone());
+        self.rclone_m.lock().unwrap().create_sftp_config(rclone_arg.name.clone(), rclone_arg.username.clone() ,rclone_arg.host.clone(), 
+                                            Some(rclone_arg.password.clone()), None)?;
+        return self.config_m.save_config(config.name.clone().as_str());
+    }
+
     /// downloads a file that exists in the current path. If the open flag contains true
     /// use window explorer to try and open the file
     /// 
