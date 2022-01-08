@@ -85,23 +85,34 @@ struct Remit<R: Runtime> {
   }
 
   /// use to save an incoming configuration to the local file system
+  /// 
+  /// Creates 2 copies of the configuration a cleartext and encrypted. The encrytped is handed off to be stored in the local directory
+  /// for Remit to use directly while the unencrypted password is sent to rlcone to create a config file. rclone does either obfuscation or
+  /// encryption when creating the configuration file.
   #[tauri::command]
-  async fn save_config(user: String, password: String, port: String, host: String, name: String) -> Result<String, String>{
+  async fn save_config(username: String, password: String, port: String, host: String, name: String, encryptedpassword: String) -> Result<String, String>{
+    let mut configs:Vec::<RemitConfig> = Vec::new();
     let mut c = RemitConfig::new();
-    c.username = user; c.password = password; c.port = port; c.host = host; c.name = name;
+    c.username = username; c.password = encryptedpassword; c.port = port; c.host = host; c.name = name;
+    configs.push(c);
+    let mut rclone_config = configs[0].clone();
+    rclone_config.password = password;
+    configs.push(rclone_config);
+
     println!("running api command");
-    run_api_command::<RemitConfig>(&mut c, &|config: &mut RemitConfig, api: &mut ApiRef| -> Result<(), IOError> {
-      return api.add_config(config.clone());
+    run_api_command::<Vec::<RemitConfig>>(&mut configs, &|configs: &mut Vec::<RemitConfig>, api: &mut ApiRef| -> Result<(), IOError> {
+      return api.add_config(configs[0].clone(), Some(configs[1].clone()));
     })?;
     return Ok("saved".to_string());
   } 
 
+
   // the plugin custom command handlers if you choose to extend the API.
   #[tauri::command]
-  async fn connect(username: String, host: String, port: String, password: String) -> Result<(), String> {
-    let mut fields = vec![host, username, password, port];
+  async fn connect(username: String, host: String, port: String, password: String, config: String) -> Result<(), String> {
+    let mut fields = vec![host, username, password, config, port];
     let _r = run_api_command::<Vec::<String>>(&mut fields, &|fields: &mut Vec::<String>, api: &mut ApiRef|-> Result<(), IOError>{
-      api.set_params(fields[0].clone(), fields[1].clone(), Some(fields[2].clone()), Some("default_remitconfig".to_string()), None, Some(fields[3].clone()))?;
+      api.set_params(fields[0].clone(), fields[1].clone(), Some(fields[2].clone()), Some(fields[3].clone()), None, Some(fields[4].clone()))?;
       api.connect()?;
       return Ok(());
     })?;
@@ -117,7 +128,7 @@ struct Remit<R: Runtime> {
     }
   }
 
-  // get ssh config files
+  /// get ssh config files
   #[tauri::command]
   async fn get_config_names() -> Result<Vec<HashMap<String, String>>, String> {
     let mut configs = Vec::<HashMap::<String,String>>::new();
