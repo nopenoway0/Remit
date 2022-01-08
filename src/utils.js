@@ -6,6 +6,10 @@ class RemitUtilities {
         })
         return data;
     }
+
+    static filled_string(s) {
+        return (s != undefined && s.length > 0);
+    }
 }
 
 export default RemitUtilities;
