@@ -7,6 +7,7 @@ pub mod rustssh {
     use std::thread::spawn;
     use std::sync::{Arc, Mutex};
     use std::env::current_dir;
+    use std::fs::create_dir_all;
     use crate::*;
 
     pub struct DirectoryTracker {
@@ -57,6 +58,9 @@ pub mod rustssh {
         fn set_dir_handle(&mut self, path: &Remit::SystemPath) -> Result<(), IOError> {
             // build absolute path on windows
             let track_path = format!("{}\\{}", current_dir().unwrap().to_str().unwrap(), path.get_windows_path());
+            
+            // check if exists - if it doesn't create it
+            create_dir_all(track_path.clone())?;
 
             // create file handle to directory we're tracking
             unsafe {
