@@ -8,6 +8,8 @@ import ButtonLoader from './ButtonLoader'
 import DynamicDrawer from './DynamicDrawer'
 import { invoke } from '@tauri-apps/api/tauri';
 import './App.css'
+import RemitUtilities from './utils';
+
 var aesjs = require('aes-js')
 
 /**
@@ -20,7 +22,6 @@ class Login extends Component{
     /*document.addEventListener('contextmenu', (e)=> {
       e.preventDefault();
     });*/
-    this.startup();
   }
 
   constructor(props) {
@@ -46,18 +47,20 @@ class Login extends Component{
   }
 
 
-  startup() {
-    this.getConfigs()
+  loadConfigs() {
+    return new Promise((res, rej) => {
+      this.getConfigs()
       .then((c)=> {
         var configs = {};
         c.forEach((c) => {
           configs[c.name] = c;
         })
-        this.setState({configs: configs});
+        res(configs);
       })
       .catch((e) => {
-        console.log(e);
+        rej(e);
       })
+    })
   }
 
   getConfigs() {
@@ -89,22 +92,19 @@ class Login extends Component{
 }
 
   getFormData() {
-    let host = document.getElementById("host").value;
-    let username = document.getElementById("username").value;
-    let port = document.getElementById("port").value;
-    let password = document.getElementById("password").value;    
-    let key = document.getElementById("encrypt-key").value;
-    return {username: username, host: host, port: port, password: password, key:key};
+    let fields = ['host', 'username', 'port', 'password', 'encrypt_key'];
+    return RemitUtilities.extract_elements(fields);
   }
 
   connect(){
     this.disableInputs();
     let form_data = this.getFormData();
-    if (form_data.key != undefined && form_data.key.length > 0) {
-      let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.key, 32));
+    if (form_data.encrypt_key != undefined && form_data.encrypt_key.length > 0) {
+      let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encrypt_key, 32));
       let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
       form_data.password = String.fromCharCode.apply(String, aesCtr.decrypt(aesjs.utils.hex.toBytes(form_data.password)));
     }
+    form_data.config = (this.state.config.name != undefined && this.state.config.name.length > 0) ? this.state.config.name : "default_remitconfig";
     return invoke("plugin:Remit|connect", form_data);
   }
 
@@ -133,14 +133,24 @@ class Login extends Component{
     this.props.openSaveManagerHandler(this.getFormData());
   }
 
+  openConfigList() {
+    this.loadConfigs()
+      .then((configs) => {
+        this.setState({configs: configs, openConfigList: true});
+      })
+      .catch((e) => {
+        console.log(e);
+      })
+  }
+
   render() {
       return (
         <div className="App">
           <Box sx={{position:"fixed", bgcolor:"background.paper", borderRadius:"2px"}}>
-            <AssignmentIcon sx={{position: "relative"}} onClick={()=>{this.setState({openConfigList: true})}}/>
+            <AssignmentIcon sx={{position: "relative"}} onClick={this.openConfigList.bind(this)}/>
             <SaveIcon sx={{position: "relative"}} onClick={this.openSaveManager.bind(this)} />
           </Box>
-          <DynamicDrawer onClose={()=>this.setState({openConfigList: false})} key="config_list" onClick={this.useConfig.bind(this)} contents={this.state.configs} open={this.state.openConfigList} type="map" />
+          <DynamicDrawer title="Configs" onClose={()=>this.setState({openConfigList: false})} key="config_list" onClick={this.useConfig.bind(this)} contents={this.state.configs} open={this.state.openConfigList} type="map" />
           <OkDialog key="logindialog" show={this.state.displayDialog} onClick={this.hideDialog.bind(this)} title="Error Connecting" text={this.state.dialogText}></OkDialog>
           <body className="App-header">
             <Box sx={{bgcolor: 'background.paper', overflow:'hidden', borderRadius:'12px', boxShadow: 1, display: 'flex',
@@ -157,7 +167,7 @@ class Login extends Component{
                 onChange={this.updateConfig.bind(this, "host")}/>
               <TextField autoComplete="false" key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}
                 onChange={this.updateConfig.bind(this, "port")}/>
-              <TextField autoComplete="false" key="encrypt-key" type="password" disabled={!this.state.inputs} variant="standard" label="Encryption Key" id="encrypt-key"/>
+              <TextField autoComplete="false" key="encrypt-key" type="password" disabled={!this.state.inputs} variant="standard" label="Encryption Key" id="encrypt_key"/>
               <ButtonLoader text={"Connect"} onClick={this.connect.bind(this)} handleError={this.handleError.bind(this)} handleSuccess={this.handleSuccess.bind(this)}/>
             </Stack>
             </Box>
