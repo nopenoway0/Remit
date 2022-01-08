@@ -5,6 +5,7 @@ import ButtonLoader from './ButtonLoader';
 import OkDialog from './OkDialog'
 import { invoke } from '@tauri-apps/api/tauri';
 import "./App.css"
+var aesjs = require('aes-js')
 
 class SaveMananger extends Component {
 
@@ -23,8 +24,11 @@ class SaveMananger extends Component {
         fields.port = document.getElementById("port").value;
         fields.password = document.getElementById("password").value; 
         fields.name = document.getElementById("name").value;
+        fields.key = document.getElementById("encrypt-key").value;
         return fields;
     }
+
+
 
     //TODO rewrite a better for loop
     getIncorrectInputs() {
@@ -38,6 +42,13 @@ class SaveMananger extends Component {
         return error_fields;
     }
 
+    addPadding(str, desired_length) {
+        while (str.length < desired_length) {
+            str += "f";
+        }
+        return str;
+    }
+
     save() { 
         return new Promise((res, rej) => {
             let errors = this.getIncorrectInputs();
@@ -45,7 +56,11 @@ class SaveMananger extends Component {
             if (errors.errors > 0) {
                 rej(JSON.stringify(errors));
             } else {
-                invoke("plugin:Remit|save_config", this.getFormData())
+                let form_data = this.getFormData();
+                let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.key, 32));
+                let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
+                form_data.password = aesjs.utils.hex.fromBytes(aesCtr.encrypt(aesjs.utils.utf8.toBytes(form_data.password)));
+                invoke("plugin:Remit|save_config", form_data)
                     .then((e)=>res(e))
                     .catch((e)=>rej(e));
             }
@@ -76,11 +91,12 @@ class SaveMananger extends Component {
                             <Typography sx={{color:'black'}} variant="h6" gutterBottom>
                                 Enter Configuration Information
                             </Typography>
-                            <TextField key="username" variant="standard" required label="Username" defaultValue={this.props.user} id="username"></TextField>
-                            <TextField key="password" variant="standard" required label="Password" type="password" id="password" defaultValue={this.props.pass}></TextField>
-                            <TextField key="host" variant="standard" required label="Host" id="host" defaultValue={this.props.host}/>
-                            <TextField key="port" variant="standard" required label="Port" id="port" defaultValue={this.props.port}/>
-                            <TextField key="name" variant="standard" required label="Name" id="name" defaultValue={name}/>
+                            <TextField autoComplete="false" key="username" variant="standard" required label="Username" defaultValue={this.props.user} id="username"></TextField>
+                            <TextField autoComplete="false" key="password" variant="standard" required label="Password" type="password" id="password" defaultValue={this.props.pass}></TextField>
+                            <TextField autoComplete="false" key="host" variant="standard" required label="Host" id="host" defaultValue={this.props.host}/>
+                            <TextField autoComplete="false" key="port" variant="standard" required label="Port" id="port" defaultValue={this.props.port}/>
+                            <TextField autoComplete="false" type="password" key="encrypt-key" variant="standard" required label="Encryption Key" id="encrypt-key"/>
+                            <TextField autoComplete="false" key="name" variant="standard" required label="Name" id="name" defaultValue={name}/>
                         </Stack>
                         <Box>
                             <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
