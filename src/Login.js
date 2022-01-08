@@ -99,7 +99,7 @@ class Login extends Component{
   connect(){
     this.disableInputs();
     let form_data = this.getFormData();
-    if (form_data.encrypt_key != undefined && form_data.encrypt_key.length > 0) {
+    if (RemitUtilities.filled_string(form_data.encrypt_key)) {
       let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encrypt_key, 32));
       let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
       form_data.password = String.fromCharCode.apply(String, aesCtr.decrypt(aesjs.utils.hex.toBytes(form_data.password)));
@@ -109,7 +109,6 @@ class Login extends Component{
   }
 
   handleSuccess(r) {
-    //console.log(r); 
     this.enabledInputs();
     this.props.loggedInCallback();
   }
