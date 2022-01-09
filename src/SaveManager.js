@@ -95,13 +95,11 @@ class SaveMananger extends Component {
                             <TextField autoComplete="false" key="port" variant="standard" required label="Port" id="port" defaultValue={this.props.port}/>
                             <TextField autoComplete="false" type="password" key="encrypt-key" variant="standard" required label="Encryption Key" id="encrypt_key"/>
                             <TextField autoComplete="false" key="name" variant="standard" required label="Name" id="name" defaultValue={name}/>
-                        </Stack>
-                        <Box>
                             <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
                                 <Button variant="outlined" onClick={this.closeHandler.bind(this)}>Cancel</Button>
                                 <ButtonLoader text={"Save"} onClick={this.save.bind(this)} handleSuccess={this.success.bind(this)}  handleError={this.fail.bind(this)} /> 
                             </Stack>
-                        </Box>
+                        </Stack>
                     </Box>
                 </body>
             </div>
