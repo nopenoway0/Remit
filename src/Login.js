@@ -31,7 +31,12 @@ class Login extends Component{
                     inputs:true, 
                     openConfigList: false,
                     config:{name:"", pass:"", host:"", port:"", user:""},
-                    openSaveManager: false});
+                    openSaveManager: false,
+                    callbacks: {saveManager: this.openSaveManager.bind(this), configTab: this.openConfigList.bind(this)}});
+  }
+
+  emptyFunction() {
+
   }
 
   showDialog(text) {
@@ -39,11 +44,11 @@ class Login extends Component{
   }
 
   disableInputs() {
-    this.setState({inputs:false});
+    this.setState({inputs:false, callbacks:{saveManager: this.emptyFunction, configTab: this.emptyFunction}});
   }
 
   enabledInputs() {
-    this.setState({inputs: true});
+    this.setState({inputs: true, callbacks:{saveManager: this.openSaveManager.bind(this), configTab: this.openConfigList.bind(this)}});
   }
 
 
@@ -143,11 +148,12 @@ class Login extends Component{
   }
 
   render() {
+      const icon_color = (this.state.inputs) ? "" : "disabled";
       return (
         <div className="App">
           <Box sx={{position:"fixed", bgcolor:"background.paper", borderRadius:"2px"}}>
-            <AssignmentIcon sx={{position: "relative"}} onClick={this.openConfigList.bind(this)}/>
-            <SaveIcon sx={{position: "relative"}} onClick={this.openSaveManager.bind(this)} />
+            <AssignmentIcon id="save-icon" color={icon_color} sx={{position: "relative"}} onClick={this.state.callbacks.configTab}/>
+            <SaveIcon id="save-icon" color={icon_color} sx={{position: "relative"}} onClick={this.state.callbacks.saveManager} />
           </Box>
           <DynamicDrawer title="Configs" onClose={()=>this.setState({openConfigList: false})} key="config_list" onClick={this.useConfig.bind(this)} contents={this.state.configs} open={this.state.openConfigList} type="map" />
           <OkDialog key="logindialog" show={this.state.displayDialog} onClick={this.hideDialog.bind(this)} title="Error Connecting" text={this.state.dialogText}></OkDialog>
