@@ -38,7 +38,7 @@ impl Manager {
         let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(None, None)));
         let mut m = Manager{ssh_m: Remit::SessionManager::new(None, None, None)?,
                         rclone_m: rclone_instance.clone(),
-                        config_m: Remit::ConfigManager::new(),
+                        config_m: Remit::ConfigManager::new(true),
                         dir: Remit::Directory::new(None),
                         file_tracker: Remit::DirectoryTracker::new(path, rclone_instance.clone()),
                         custom_path: ".remote".to_string()/*String::new()*/};
