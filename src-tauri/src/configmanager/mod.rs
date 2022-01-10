@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use std::fs::read_dir;
 use std::fs::read_to_string;
 use std::fs::write;
+use std::fs::create_dir_all;
 use crate::*;
 
 #[derive(Clone)]
@@ -32,10 +33,19 @@ pub struct ConfigManager{
 impl ConfigManager {
 
     /// construct config manager with default path set to ./configs
-    pub fn new() -> ConfigManager {
+    pub fn new(initialize_dir: bool) -> ConfigManager {
         let mut manager = ConfigManager{configs: HashMap::new(), config_path: Remit::SystemPath::new()};
         manager.config_path.pushd("configs".to_string());
+        if initialize_dir {
+            manager.force_config_directory();
+        }
         return manager;
+    }
+
+    /// forces the creation of the ConfigManager's config_path
+    pub fn force_config_directory(&self) {
+        let path = self.config_path.get_windows_path_local();
+        let _r = create_dir_all(path);
     }
 
     /// load all the remit configs (.rcfg) found in the directory
