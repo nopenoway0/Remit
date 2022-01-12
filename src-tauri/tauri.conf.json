@@ -22,7 +22,7 @@
         "icons/icon.ico"
       ],
       "resources": [],
-      "externalBin": [],
+      "externalBin": ["bin/rclone"],
       "copyright": "",
       "category": "DeveloperTool",
       "shortDescription": "",

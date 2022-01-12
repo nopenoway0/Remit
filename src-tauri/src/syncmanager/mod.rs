@@ -73,9 +73,6 @@ pub struct RCloneManager {
     pub chosen_config: String,
     custom_path: String
 }
-
-use std::fs::read_dir;
-
 #[allow(dead_code)]
 impl RCloneManager {
     /// produce a new rlcone manager with the exe at the passed in 
