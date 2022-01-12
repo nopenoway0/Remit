@@ -148,6 +148,16 @@ struct Remit<R: Runtime> {
     return Ok(configs);
   }
 
+  #[tauri::command]
+  fn rclone_exe_exists() -> bool {
+    let mut res = false;
+    let _r = run_api_command::<bool>(&mut res, &|res:&mut bool, api: &mut ApiRef| -> Result<(), IOError> {
+      *res = api.rclone_exe_exists();
+      return Ok(());
+    });
+    return res;
+  }
+
   /// disconnect current ssh session
   #[tauri::command]
   fn disconnect() -> Result<(), String>{
@@ -169,7 +179,7 @@ struct Remit<R: Runtime> {
                                                           get_config_names,
                                                           list_current_directory,
                                                           pushd, download,
-                                                          save_config]),
+                                                          save_config, rclone_exe_exists]),
       }
     }
   }

@@ -4,6 +4,7 @@ use std::process::Command;
 use std::string::ToString;
 use std::fmt::Debug;
 use std::os::windows::process::CommandExt;
+use std::fs::metadata;
 use crate::*;
 
 /// MS Windows flag for process creation, prevents window from being called
@@ -80,6 +81,16 @@ impl RCloneManager {
     pub fn new(exe: Option<String>, custom_path: Option<String>) -> RCloneManager{
         return RCloneManager{exe: exe.unwrap_or("rclone.exe".to_string()), configs: HashMap::new(), chosen_config: String::new(),
                                 custom_path: custom_path.unwrap_or("".to_string())};
+    }
+
+    /// check if the required rclone executable exists in the directory
+    pub fn rclone_exe_exists(&self) -> bool{
+        let full_path = self.custom_path.clone() + &self.exe.clone();
+        let res = metadata(full_path);
+        if res.is_ok() {
+            return res.unwrap().is_file();
+        }
+        return false;
     }
 
     /// load all rclone configurations
