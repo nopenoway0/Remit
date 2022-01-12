@@ -35,7 +35,7 @@ impl Manager {
     pub fn new_empty() -> Result<Manager, IOError> {
         let mut path = Remit::SystemPath::new();
         path.set_path(".remote".to_string());
-        let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(None, None)));
+        let rclone_instance = Arc::new(Mutex::new(Remit::RCloneManager::new(Some("rclone-x86_64-pc-windows-msvc.exe".to_string()), None)));
         let mut m = Manager{ssh_m: Remit::SessionManager::new(None, None, None)?,
                         rclone_m: rclone_instance.clone(),
                         config_m: Remit::ConfigManager::new(true),
@@ -51,6 +51,12 @@ impl Manager {
         let mut m = Manager::new_empty()?;
         m.set_params(host, username, pass, rclone_config, None, port_option)?;
         return Ok(m);
+    }
+
+    /// pass through method to check if rclone exe exists by calling method in
+    /// local rclone method
+    pub fn rclone_exe_exists(&self) -> bool {
+        return self.rclone_m.lock().unwrap().rclone_exe_exists();
     }
 
     /// set params for the manager and its sub managers
