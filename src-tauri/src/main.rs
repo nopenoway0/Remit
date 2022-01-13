@@ -1,12 +1,11 @@
 
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 /// Contains the backend for the remit application
 /// 
 /// main.rs contains bindngs to perform all io and system operations. This file starts the application as well
 /// as providing an api for the frontend to communicate with file systems. functions that are prepended
 /// with the tauri::command macro are available for the rendered web view to hook. The other parts of the file
 /// are set up and configuration
-
-//#![windows_subsystem = "windows"]
 
 use tauri::{plugin::{Plugin, Result as PluginResult}, Runtime, PageLoadPayload, Window, Invoke, AppHandle};
 use std::{sync::Mutex, sync::MutexGuard};
