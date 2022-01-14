@@ -137,9 +137,9 @@ struct Remit<R: Runtime> {
         let mut config_json = HashMap::<String,String>::new();
         config_json.insert("name".to_string(), c.name);
         config_json.insert("port".to_string(), c.port);
-        config_json.insert("pass".to_string(), c.password);
+        config_json.insert("password".to_string(), c.password);
         config_json.insert("host".to_string(), c.host);
-        config_json.insert("user".to_string(), c.username);
+        config_json.insert("username".to_string(), c.username);
         json.push(config_json);
       }
       return Ok(());
