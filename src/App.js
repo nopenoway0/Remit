@@ -37,7 +37,6 @@ class App extends Component{
   }
 
   openSaveManager(data) {
-    console.log("open save manager");
     this.setState({saveManagerData: data});
   }
 
@@ -64,7 +63,7 @@ class App extends Component{
       page = <OkDialog show={true} title="rclone not found!" text="rclone-x86_64-pc-windows-msvc.exe not found. Please download rclone, rename it accordingly and place it in the directory"
                 onClick={()=>this.setState({logged:false})}/>;
     } else if (this.state.saveManagerData) {
-      page = <SaveManager pass={this.state.saveManagerData.password} user={this.state.saveManagerData.username} 
+        page = <SaveManager password={this.state.saveManagerData.password} username={this.state.saveManagerData.username} 
         host={this.state.saveManagerData.host} port={this.state.saveManagerData.port} onClose={this.closeSaveManager.bind(this)}/>
     } else if (this.state.logged) {
       page = <Navigator disconnectHandler={this.logout.bind(this)}/>;
