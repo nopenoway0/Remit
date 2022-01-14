@@ -10,6 +10,11 @@ class RemitUtilities {
     static filled_string(s) {
         return (s != undefined && s.length > 0);
     }
+
+    static string_to_key(str) {
+        return str.toLowerCase().replace(" ", "_");
+    }
 }
+
 
 export default RemitUtilities;
