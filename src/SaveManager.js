@@ -12,28 +12,47 @@ class SaveMananger extends Component {
 
     constructor(props) {
         super(props);
+        let textfields = [{label:"Username", type:"standard", error:false, error_text:""},
+                            {label:"Password", type:"password", error:false, error_text:""},
+                            {label:"Host", type:"standard", error:false, error_text:""},
+                            {label:"Port", type:"number", error:false, error_text:""},
+                            {label:"Name", type:"standard", error:false, error_text:""},
+                            {label:"Encryption Key", type:"standard", error:false, error_text:""}];
         this.state = {showDialog: false,
                         dialogText: "",
                         showPassword: false,
-                        dialogClickHandler: ()=>{}};
+                        dialogClickHandler: ()=>{},
+                        textfields: textfields};
     }
 
     getFormData() {
-        let fields = ['host', 'username', 'port', 'password', 'name', 'encrypt_key'];
+        let fields = this.state.textfields.map(f=>RemitUtilities.string_to_key(f.label));
         return RemitUtilities.extract_elements(fields);
     }
 
-
+    // build form text. autocomplete false we wont save config information
+    processTextFields(textfields) {
+        let result = [];
+        for (const field of textfields) {
+            let {label} = field;
+            let id = RemitUtilities.string_to_key(label);
+            let textfield = <TextField error={field.error} autoComplete="false" key={id} variant="standard" type={field.type} required label={label}
+                                defaultValue={this.props[id]} helperText={field.error_text} id={id}/>;
+            result.push(textfield);
+        }
+        return result;
+    }
 
     //TODO rewrite a better for loop
     getIncorrectInputs() {
         let fields = this.getFormData();
         let error_fields = {errors:0};
-        Object.entries(fields).forEach((entry) => {
-            if (entry[1] == undefined || entry[1].length == 0) {
+        for (const key in fields) {
+            if (!RemitUtilities.filled_string(fields[key])) {
                 error_fields.errors += 1;
+                error_fields[key] = true;
             }
-        });
+        }
         return error_fields;
     }
 
@@ -46,15 +65,24 @@ class SaveMananger extends Component {
 
     save() { 
         return new Promise((res, rej) => {
-            let errors = this.getIncorrectInputs();
-            // do backend save here
-            if (errors.errors > 0) {
-                rej(JSON.stringify(errors));
+            let error_map = this.getIncorrectInputs();
+            let {errors} = error_map;
+            // if we have errors do markup and reject with dialog error message
+            if (errors > 0) {
+                let textfields = [...this.state.textfields];
+                for (var field  of textfields) {
+                    let key = RemitUtilities.string_to_key(field.label);
+                    field.error = (key in error_map);
+                    field.error_text = (field.error) ? "Please fill in" : "";
+                }
+                this.setState({textfields:textfields});
+                rej("Please fill out all required fields");
             } else {
+                // no errors means let's encrypt using the key and attempt to create the config file
                 let form_data = this.getFormData();
                 form_data.encryptedpassword = form_data.password;
-                if (RemitUtilities.filled_string(form_data.encrypt_key)) {
-                    let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encrypt_key, 32));
+                if (RemitUtilities.filled_string(form_data.encryption_key)) {
+                    let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encryption_key, 32));
                     let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
                     form_data.encryptedpassword = aesjs.utils.hex.fromBytes(aesCtr.encrypt(aesjs.utils.utf8.toBytes(form_data.password)));
                 }
@@ -79,6 +107,7 @@ class SaveMananger extends Component {
 
     render() {
         let name = (this.props.name != undefined) ? this.props.name : "";
+        let textfields = this.processTextFields(this.state.textfields);
         return (
             <div className="App">
                 <body className="App-header">
@@ -89,12 +118,7 @@ class SaveMananger extends Component {
                             <Typography sx={{color:'black'}} variant="h6" gutterBottom>
                                 Enter Configuration Information
                             </Typography>
-                            <TextField autoComplete="false" key="username" variant="standard" required label="Username" defaultValue={this.props.user} id="username"></TextField>
-                            <TextField autoComplete="false" key="password" variant="standard" required label="Password" type="password" id="password" defaultValue={this.props.pass}></TextField>
-                            <TextField autoComplete="false" key="host" variant="standard" required label="Host" id="host" defaultValue={this.props.host}/>
-                            <TextField autoComplete="false" key="port" variant="standard" required label="Port" id="port" defaultValue={this.props.port}/>
-                            <TextField autoComplete="false" type="password" key="encrypt-key" variant="standard" required label="Encryption Key" id="encrypt_key"/>
-                            <TextField autoComplete="false" key="name" variant="standard" required label="Name" id="name" defaultValue={name}/>
+                            {textfields}
                             <Stack direction="row" justifyContent="center" alignItems="center" spacing={2}>
                                 <Button variant="outlined" onClick={this.closeHandler.bind(this)}>Cancel</Button>
                                 <ButtonLoader text={"Save"} onClick={this.save.bind(this)} handleSuccess={this.success.bind(this)}  handleError={this.fail.bind(this)} /> 

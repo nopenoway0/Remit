@@ -26,13 +26,21 @@ class Login extends Component{
 
   constructor(props) {
     super(props);
+    let textfields = [{label:"Username", required:true, type:"standard", error:false, error_text:""},
+                      {label:"Password", required:true, type:"password", error:false, error_text:""},
+                      {label:"Host", required:true, type:"standard", error:false, error_text:""},
+                      {label:"Port", required:true, type:"number", error:false, error_text:""},
+                      {label:"Name", required:true, type:"standard", error:false, error_text:""},
+                      {label:"Encryption Key", required: false, type:"standard", error:false, error_text:""}];
+
     this.state = ({displayDialog: false,
                     dialogText: "Error",
                     inputs:true, 
                     openConfigList: false,
                     config:{name:"", pass:"", host:"", port:"", user:""},
                     openSaveManager: false,
-                    callbacks: {saveManager: this.openSaveManager.bind(this), configTab: this.openConfigList.bind(this)}});
+                    callbacks: {saveManager: this.openSaveManager.bind(this), configTab: this.openConfigList.bind(this)},
+                    textfields:textfields});
   }
 
   emptyFunction() {
@@ -76,17 +84,8 @@ class Login extends Component{
     this.setState({disableScreen: true});
   }
 
-  unlock(name) {
-    return new Promise((res, rej) => {
-      res("");
-    });
-  }
-
   useConfig(name) {
-    this.unlock(name)
-      .then((e) => {
-        this.setState({config: this.state.configs[name], openConfigList: false});
-      });
+    this.setState({config: this.state.configs[name], openConfigList: false});
   }
 
   addPadding(str, desired_length) {
@@ -97,20 +96,40 @@ class Login extends Component{
 }
 
   getFormData() {
-    let fields = ['host', 'username', 'port', 'password', 'encrypt_key'];
+    let fields = this.state.textfields.map(f=>RemitUtilities.string_to_key(f.label));
     return RemitUtilities.extract_elements(fields);
   }
 
-  connect(){
-    this.disableInputs();
-    let form_data = this.getFormData();
-    if (RemitUtilities.filled_string(form_data.encrypt_key)) {
-      let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encrypt_key, 32));
-      let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
-      form_data.password = String.fromCharCode.apply(String, aesCtr.decrypt(aesjs.utils.hex.toBytes(form_data.password)));
+  validateFormData(form_data) {
+    let textfields = [...this.state.textfields];
+    let error = false;
+    for (const field of textfields) {
+      let id = RemitUtilities.string_to_key(field.label);
+      field.error = !RemitUtilities.filled_string(form_data[id]) && field.required;
+      field.error_text = (field.error) ? "Please fill in" : "";
+      error |= field.error;
     }
-    form_data.config = (this.state.config.name != undefined && this.state.config.name.length > 0) ? this.state.config.name : "default_remitconfig";
-    return invoke("plugin:Remit|connect", form_data);
+    this.setState({textfields:textfields});
+    return !error;
+  }
+
+  connect(){
+    return new Promise((res, rej) => {
+      this.disableInputs();
+      let form_data = this.getFormData();
+      if (!this.validateFormData(form_data)) {
+        rej("Please fill out required fields");
+      }
+      if (RemitUtilities.filled_string(form_data.encryption_key)) {
+        let padded_key = aesjs.utils.utf8.toBytes(this.addPadding(form_data.encryption_key, 32));
+        let aesCtr = new aesjs.ModeOfOperation.ctr(padded_key);
+        form_data.password = String.fromCharCode.apply(String, aesCtr.decrypt(aesjs.utils.hex.toBytes(form_data.password)));
+      }
+      form_data.config = (this.state.config.name != undefined && this.state.config.name.length > 0) ? this.state.config.name : "default_remitconfig";
+      invoke("plugin:Remit|connect", form_data)
+        .then((s)=>res(s))
+        .catch((e)=>rej(e));
+    });
   }
 
   handleSuccess(r) {
@@ -127,8 +146,8 @@ class Login extends Component{
     this.setState({displayDialog: false});
   }
 
-  updateConfig(key, e) {
-    let c = this.state.config;
+  passthrough(key, e) {
+    let c = {...this.state.config};
     c[key] = e.target.value;
     this.setState({config: c});
   }
@@ -145,6 +164,18 @@ class Login extends Component{
       .catch((e) => {
         console.log(e);
       })
+  }
+
+  createFormFields() {
+    let fields = [];
+    for (const field of this.state.textfields) {
+      let {label, type, required, error, error_text} = field;
+      let key = RemitUtilities.string_to_key(label);
+      let value = (this.state.config && this.state.config[key]) ? this.state.config[key] : "";
+      fields.push(<TextField required={required} value={value} error={error} helperText={error_text} onChange={this.passthrough.bind(this, key)}
+                    autoComplete="false" key={key} type={type} disabled={!this.state.inputs} variant="standard" label={label} id={key}/>);
+    }
+    return fields;
   }
 
   render() {
@@ -164,15 +195,7 @@ class Login extends Component{
             <Typography sx={{color:'black'}} variant="h6" gutterBottom>
                                 Enter Connection Information
               </Typography>
-              <TextField autoComplete="false" key="username" disabled={!this.state.inputs} variant="standard" required label="Username" onChange={this.updateConfig.bind(this, "user")} 
-                value={this.state.config.user} id="username"/>
-              <TextField autoComplete="false" key="password" disabled={!this.state.inputs} variant="standard" required label="Password" type="password" id="password" value={this.state.config.pass}
-                onChange={this.updateConfig.bind(this, "pass")}/>
-              <TextField autoComplete="false" key="host" disabled={!this.state.inputs} variant="standard" required label="Host" id="host" value={this.state.config.host}
-                onChange={this.updateConfig.bind(this, "host")}/>
-              <TextField autoComplete="false" key="port" disabled={!this.state.inputs} variant="standard" required label="Port" id="port" value={this.state.config.port}
-                onChange={this.updateConfig.bind(this, "port")}/>
-              <TextField autoComplete="false" key="encrypt-key" type="password" disabled={!this.state.inputs} variant="standard" label="Encryption Key" id="encrypt_key"/>
+              {this.createFormFields()}
               <ButtonLoader text={"Connect"} onClick={this.connect.bind(this)} handleError={this.handleError.bind(this)} handleSuccess={this.handleSuccess.bind(this)}/>
             </Stack>
             </Box>
