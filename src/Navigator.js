@@ -3,8 +3,9 @@ import { Component } from 'react/cjs/react.production.min'
 import { invoke } from '@tauri-apps/api/tauri';
 import {Button, Grid, Paper, Box, List, Backdrop} from '@mui/material'
 import RemitFile from "./RemitFile"
+import ContextMenu from "./ContextMenu"
 import './App.css'
-import { ConnectingAirportsOutlined } from '@mui/icons-material';
+import { ConnectingAirportsOutlined, ContentCutTwoTone, DeleteForeverSharp, DriveFileRenameOutlineSharp, ThirtyFpsSelect } from '@mui/icons-material';
 
 /**
  * The navigator component is the main portion of the application. This shows the files in the current directory
@@ -14,13 +15,24 @@ import { ConnectingAirportsOutlined } from '@mui/icons-material';
 class Navigator extends Component {
 
     componentDidMount() {
+        document.addEventListener('click', (e) => {
+            if (this.state.contextMenuOpen) {
+                this.setState({contextMenuOpen: false});
+            }
+        });
+        /*document.addEventListener('contextmenu', (e)=> {
+            e.preventDefault();
+            //this.setState({contextMenuOpen:true, contextMenuItems: ContextMenu.build_items([{text:"New File", callback:null}])});
+        });*/
         this.listFiles((files)=>this.setState({files:files}), (e)=>{console.log(e)});
     }
 
     constructor(props) {
         super(props);
         this.state = {files:[],
-                        lockScreen:false};
+                        lockScreen:false,
+                        contextmenu:<div></div>,
+                        contextMenuPos:{x:0, y:0}};
     }
 
     listFiles(successHandler, errorHandler) {
@@ -33,6 +45,33 @@ class Navigator extends Component {
                 //console.log(e);
                 errorHandler(e);
         });
+    }
+
+    delete(file, type) {
+        console.log("deleting", file);
+        invoke("plugin:Remit|delete_file", {file: file})
+            .then((f) => {
+                console.log(f);
+                this.listFiles((files)=>this.setState({files:files, lockScreen: false}), (e)=>{});                
+            })
+            .catch((e)=>console.log(e));
+    }
+
+    rename(file, type) {
+        console.log("rename " + file);
+    }
+
+    handleNavigatorRightClick(type, file, event) {
+        const {clientX, clientY} = event;
+        const pos = {x:clientX, y:clientY};
+        const delete_icon = <DeleteForeverSharp></DeleteForeverSharp>;
+        const rename_icon = <DriveFileRenameOutlineSharp></DriveFileRenameOutlineSharp>;
+        if (type == "TypeDirectory" || type == "TypeFile") {
+            const directory_menu_items = [{text:"Delete", callback:()=>this.delete(file, type), icon:delete_icon},
+                                            {text:"Rename", callback:()=>this.rename(file, type), icon:rename_icon}];
+            this.setState({contextMenuOpen:true, contextMenuItems:ContextMenu.build_items(directory_menu_items),
+                            contextMenuPos:pos});
+        }
     }
 
     handleNavigatorClick(type, file) {
@@ -74,12 +113,13 @@ class Navigator extends Component {
             if (file.name != ".") {
                 files.push(<Grid item xs={4}>
                                 <Paper>
-                                    <RemitFile key={file.name} onClick={()=>{this.handleNavigatorClick(file.type, file.name)}} type={file.type} name={file.name} size={file.size}></RemitFile>
+                                    <RemitFile key={file.name} onContextMenu={(e)=>{this.handleNavigatorRightClick(file.type, file.name, e)}} onClick={()=>{this.handleNavigatorClick(file.type, file.name)}} type={file.type} name={file.name} size={file.size}></RemitFile>
                                 </Paper>
                             </Grid>);
             }
         })
         return (<div className="App">
+            <ContextMenu open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
             <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
             <Button onClick={this.disconnect.bind(this)}>Disconnect</Button>
             <Grid container spacing={2}>

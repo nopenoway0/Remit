@@ -22,7 +22,7 @@ class RemitFile extends Component {
             default: icon = <QuestionMarkSharpIcon/>
         }
 
-        return (<Button fullWidth={true} variant="outlined" onClick={()=>{this.props.onClick(this.props.name)}}elevation={0} onClick={this.props.onClick}>
+        return (<Button fullWidth={true} variant="outlined" onClick={()=>{this.props.onClick(this.props.name)}}elevation={0} onContextMenu={this.props.onContextMenu} onClick={this.props.onClick}>
                     <Grid container>
                         <Grid item xs={2}>
                             {icon}
