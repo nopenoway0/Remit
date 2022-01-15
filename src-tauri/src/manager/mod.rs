@@ -4,7 +4,7 @@ pub mod rustssh{
 use std::process::Command;
 use std::env::current_dir;
 use std::sync::{Arc, Mutex};
-
+use std::fs::remove_file;
 use crate::*;
 
 /// Primary manager over the ssh, rclone and config managers. 
@@ -44,6 +44,34 @@ impl Manager {
                         custom_path: ".remote".to_string()/*String::new()*/};
         m.config_m.load_configs()?;
         return Ok(m);
+    }
+
+    /// delete a file both remotely and locally. Only uses remove_file and rm ( no -r ) so doesn't work for directories
+    /// Will need a more robust version to prevent accidental removal of entire directory trees
+    pub fn delete_file(&mut self, file: String) -> Result<String, IOError>{
+        let mut local_path = Remit::SystemPath::new();
+        local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        local_path.pushd(file.clone());
+        remote_path.pushd(file);
+
+        let mut result_string: String = "".to_string();
+        // delete locally
+        let res1 = remove_file(local_path.get_windows_path_local());
+        if res1.is_err() {
+            result_string += &res1.unwrap_err().to_string();
+        }
+        println!("{}",local_path.get_windows_path_local());
+        // delete remotely
+        println!("rm {}", remote_path.get_path());
+        let res2 = self.ssh_m.run_command(format!("rm {}", remote_path.get_path()));
+        if res2.is_err() {
+            result_string += &res2.unwrap_err().to_string();
+        } else {
+            result_string += &res2.unwrap();
+        }
+        return Ok(result_string);
     }
 
     /// Create a manager with configs loaded and params pass into it
