@@ -66,13 +66,13 @@ pub mod rustssh {
                 }  
             },
             FILE_ACTION_REMOVED => {
-                println!("removed");
+                println!("ignore file removed. app will perform deletion");
             }, 
             FILE_ACTION_RENAMED_NEW_NAME => {
-                println!("rename new");
+                println!("ignore rename1. app will perform renaming");
             },
             FILE_ACTION_RENAMED_OLD_NAME => {
-                println!("Rename old");
+                println!("ignore rename2. app will perform renaming");
             },
             e => {
                 println!("Other event occured {}", e.0);
