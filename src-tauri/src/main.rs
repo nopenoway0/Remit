@@ -127,6 +127,16 @@ struct Remit<R: Runtime> {
     }
   }
 
+  #[tauri::command]
+  async fn delete_file(file: String) -> Result<String, String> {
+    let mut arg = file.clone();
+    run_api_command::<String>(&mut arg, &|arg: &mut String, api: &mut ApiRef| -> Result<(), IOError> {
+      *arg = api.delete_file(arg.clone())?;
+      return Ok(());
+    })?;
+    return Ok(arg);
+  }
+
   /// get ssh config files
   #[tauri::command]
   async fn get_config_names() -> Result<Vec<HashMap<String, String>>, String> {
@@ -177,7 +187,7 @@ struct Remit<R: Runtime> {
                                                           check_dependencies, 
                                                           get_config_names,
                                                           list_current_directory,
-                                                          pushd, download,
+                                                          pushd, download,delete_file,
                                                           save_config, rclone_exe_exists]),
       }
     }
