@@ -137,6 +137,18 @@ struct Remit<R: Runtime> {
     return Ok(arg);
   }
 
+  #[tauri::command]
+  async fn rename_file(file: String, newname: String) -> Result<(), String> {
+    let mut filenames = Vec::<String>::new();
+    filenames.push(file);
+    filenames.push(newname);
+    let _r = run_api_command::<Vec::<String>>(&mut filenames, &|names: &mut Vec::<String>, api: &mut ApiRef| -> Result<(), IOError> {
+      api.rename_file(names[0].clone(), names[1].clone())?;
+      return Ok(());
+    });
+    return Ok(());
+  }
+
   /// get ssh config files
   #[tauri::command]
   async fn get_config_names() -> Result<Vec<HashMap<String, String>>, String> {
@@ -185,7 +197,7 @@ struct Remit<R: Runtime> {
       Self {
         invoke_handler: Box::new(tauri::generate_handler![connect,disconnect, 
                                                           check_dependencies, 
-                                                          get_config_names,
+                                                          get_config_names, rename_file,
                                                           list_current_directory,
                                                           pushd, download,delete_file,
                                                           save_config, rclone_exe_exists]),
