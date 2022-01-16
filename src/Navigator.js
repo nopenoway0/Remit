@@ -1,11 +1,11 @@
 import React from 'react'
 import { Component } from 'react/cjs/react.production.min'
 import { invoke } from '@tauri-apps/api/tauri';
-import {Button, Grid, Paper, Box, List, Backdrop} from '@mui/material'
+import {Button, Grid, Paper, Backdrop} from '@mui/material'
 import RemitFile from "./RemitFile"
 import ContextMenu from "./ContextMenu"
 import './App.css'
-import { ConnectingAirportsOutlined, ContentCutTwoTone, DeleteForeverSharp, DriveFileRenameOutlineSharp, ThirtyFpsSelect } from '@mui/icons-material';
+import { DeleteForeverSharp, DriveFileRenameOutlineSharp, FolderSharp, FileUploadSharp } from '@mui/icons-material';
 
 /**
  * The navigator component is the main portion of the application. This shows the files in the current directory
@@ -14,12 +14,33 @@ import { ConnectingAirportsOutlined, ContentCutTwoTone, DeleteForeverSharp, Driv
  */
 class Navigator extends Component {
 
+    constructor(props) {
+        super(props);
+        this.state = {files:[],
+                        lockScreen:false,
+                        contextmenu:<div></div>,
+                        contextMenuPos:{x:0, y:0},
+                        editingIndeces:[]};
+        this.menu = React.createRef();
+        this.menuHandler = this.outOfMenuClickHandler.bind(this);
+        this.disableDefaultContextMenu = (e)=>{e.preventDefault()};
+    }
+
     componentDidMount() {
-        /*document.addEventListener('contextmenu', (e)=> {
-            e.preventDefault();
-            //this.setState({contextMenuOpen:true, contextMenuItems: ContextMenu.build_items([{text:"New File", callback:null}])});
-        });*/
+        document.addEventListener('click', this.menuHandler);
+        document.addEventListener('contextmenu', this.disableDefaultContextMenu);
         this.listFiles((files)=>this.setState({files:files}), (e)=>{console.log(e)});
+    }
+
+    componentWillUnmount() {
+        document.removeEventListener('click', this.menuHandler);
+        document.removeEventListener('contextmenu', this.disableDefaultContextMenu)
+    }
+
+    outOfMenuClickHandler(e) {
+        if(!this.menu.current.contains(e)) {
+            this.setState({contextMenuOpen: false});
+        }
     }
 
     clearEditingMode() {
@@ -28,15 +49,6 @@ class Navigator extends Component {
             files[index].editing = false;
         }
         this.setState({files: files});
-    }
-
-    constructor(props) {
-        super(props);
-        this.state = {files:[],
-                        lockScreen:false,
-                        contextmenu:<div></div>,
-                        contextMenuPos:{x:0, y:0},
-                        editingIndeces:[]};
     }
 
     listFiles(successHandler, errorHandler) {
@@ -106,6 +118,17 @@ class Navigator extends Component {
             this.setState({contextMenuOpen:true, contextMenuItems:ContextMenu.build_items(directory_menu_items),
                             contextMenuPos:pos});
         }
+        data.event.preventDefault();
+        data.event.stopPropagation();
+    }
+
+    handleBackgroundRightClick(event) {
+        const {clientX, clientY} = event;
+        const pos = {x: clientX, y: clientY};
+        const menu_items = [{text:"New Directory", callback: ()=>{}, icon:<FolderSharp/>},
+                            {text:"New File", callback:()=>{}, icon:<FileUploadSharp/>}];
+        this.setState({contextMenuOpen: true, contextMenuItems:ContextMenu.build_items(menu_items),
+                        contextMenuPos:pos});
     }
 
     handleNavigatorClick(type, file) {
@@ -156,13 +179,14 @@ class Navigator extends Component {
             }
             index += 1;
         }
-        return (<div className="App">
-            <ContextMenu open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
-            <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
-            <Button onClick={this.disconnect.bind(this)}>Disconnect</Button>
-            <Grid container spacing={2}>
-                    {files}
-            </Grid>
+        return (<div className="App" onContextMenu={(e)=>this.handleBackgroundRightClick(e)}>
+                    <ContextMenu key="menu" ref={this.menu} open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
+                    <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
+                    <Button onClick={this.disconnect.bind(this)}>Disconnect</Button>
+                    <Grid container spacing={2}>
+                            {files}
+                    </Grid>
+
         </div>);
     }
 
