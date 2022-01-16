@@ -88,6 +88,14 @@ impl RemitFile {
     pub fn new() -> RemitFile {
         return RemitFile{info: FileInfo::new()};
     }
+
+    pub fn new_populated(name: String, size: Option<u64>, file_type: Option<FileType>) -> RemitFile {
+        let mut info = FileInfo::new();
+        info.name = name;
+        info.size = size.unwrap_or(0);
+        info.file_type = file_type.unwrap_or(FileType::TypeUnknown);
+        return RemitFile{info: info};
+    }
 }
 
 /// represents a directory and its contents
@@ -122,19 +130,23 @@ impl Directory {
     /// parse ls -al output storing file name, permissions, size and type
     fn parse_string(input: String) -> BTreeMap<String,RemitFile>{
         let mut files: BTreeMap<String, RemitFile> = BTreeMap::new();
-        let chunks = input.split("\n\n");
+        // default structure including . and ..
+        let current = RemitFile::new_populated(".".to_string(), None, Some(FileType::TypeDirectory));
+        let updir = RemitFile::new_populated("..".to_string(), None, Some(FileType::TypeDirectory));
+        files.insert(current.info.name.clone(), current);
+        files.insert(updir.info.name.clone(), updir);
 
+        let chunks = input.split("\n\n");
         for chunk in chunks {
-            //let mut components = line.split_whitespace();
             let mut f = RemitFile::new();
             let mut lines = chunk.split("\n");
-
             // get name
             let name_line = lines.next().unwrap();
             f.info.name = name_line.chars().skip(6).collect();
-
             // skip permissions for now
-            lines.next().unwrap();
+            if lines.next().is_none() {
+                continue;
+            };
             // get size;
             let size_line = lines.next().unwrap();
             let size_str:String = size_line.chars().skip(6).collect();
