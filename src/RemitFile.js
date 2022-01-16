@@ -1,5 +1,5 @@
 import React from 'react'
-import { Button, Grid } from '@mui/material';
+import { Button, Grid, TextField, Typography } from '@mui/material';
 import { Component } from 'react/cjs/react.production.min'
 import { InsertDriveFileSharp } from '@mui/icons-material';
 import FolderSharpIcon from '@mui/icons-material/FolderSharp';
@@ -13,6 +13,18 @@ class RemitFile extends Component {
         super(props);
     }
 
+    handleClick() {
+        if (!this.props.editing) {
+            this.props.onClick(this.props.name);
+        }
+    }
+
+    handleEnter(e) {
+        if (e.key === "Enter") {
+            this.props.onEnter(this.props.name, e);
+        }
+    }
+
     render() {
         let icon;
         let size = "";
@@ -22,13 +34,20 @@ class RemitFile extends Component {
             default: icon = <QuestionMarkSharpIcon/>
         }
 
-        return (<Button fullWidth={true} variant="outlined" onClick={()=>{this.props.onClick(this.props.name)}}elevation={0} onContextMenu={this.props.onContextMenu} onClick={this.props.onClick}>
+        return (<Button fullWidth={true} variant="outlined" onClick={this.handleClick.bind(this)} elevation={0} onContextMenu={(e)=>this.props.onContextMenu({obj: this, event: e})}>
                     <Grid container>
                         <Grid item xs={2}>
                             {icon}
                         </Grid>
                         <Grid item xs={8}>
-                            {this.props.name}
+                            {this.props.editing && 
+                                <TextField defaultValue={this.props.name} onKeyPress={(e)=>this.handleEnter(e)} size="small"/>
+                            }
+                            {!this.props.editing &&
+                                <Typography style={{textTransform:'none'}}>
+                                    {this.props.name}
+                                </Typography>
+                            }
                         </Grid>
                         <Grid item xs={2}>
                             {size}
