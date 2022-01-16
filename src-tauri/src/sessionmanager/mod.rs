@@ -1,4 +1,3 @@
-
 pub mod rustssh {
 use ssh2::*;
 use std::net::TcpStream;
@@ -123,36 +122,29 @@ impl Directory {
     /// parse ls -al output storing file name, permissions, size and type
     fn parse_string(input: String) -> BTreeMap<String,RemitFile>{
         let mut files: BTreeMap<String, RemitFile> = BTreeMap::new();
-        let lines = input.lines();
-        for line in lines.skip(1) {
-            let mut components = line.split_whitespace();
+        let chunks = input.split("\n\n");
+
+        for chunk in chunks {
+            //let mut components = line.split_whitespace();
             let mut f = RemitFile::new();
-            // 0 component is permissions string e.g. drwxr-xr-x
-            Directory::parse_permissions_string(&mut f, components.nth(0).unwrap().to_string());
-           
-            // pop type number
-            components.nth(0).unwrap();
+            let mut lines = chunk.split("\n");
 
-            // pop group
-            components.nth(0).unwrap();
-            
-            // pop owner
-            components.nth(0).unwrap();
+            // get name
+            let name_line = lines.next().unwrap();
+            f.info.name = name_line.chars().skip(6).collect();
 
-            // pop size
-            f.info.size = str::parse::<u64>(components.nth(0).unwrap()).unwrap();
-
-            // pop month
-            components.nth(0).unwrap();
-
-            // pop day
-            components.nth(0).unwrap();
-
-            //pop year
-            components.nth(0).unwrap();
+            // skip permissions for now
+            lines.next().unwrap();
+            // get size;
+            let size_line = lines.next().unwrap();
+            let size_str:String = size_line.chars().skip(6).collect();
+            f.info.size = str::parse::<u64>(size_str.as_str()).unwrap();
+            // get file type
+            let file_type_line = lines.next().unwrap();
+            let file_type_str: String = file_type_line.chars().skip(6).collect();
+            f.info.file_type = Directory::parse_file_type(file_type_str.as_str());
 
             // pop name handle spaces?
-            f.info.name = components.nth(0).unwrap().to_string();
             files.insert(f.info.name.clone(), f);
         }
         return files;
@@ -173,12 +165,12 @@ impl Directory {
     /// d -> directory
     /// - -> file
     /// anything else -> unknown
-    fn parse_file_type(input: &String) -> FileType{
+    fn parse_file_type(input: &str) -> FileType{
         let filetype: FileType;
-        match input.chars().nth(0).unwrap() {
-            'l'=> filetype = FileType::TypeLink,
-            'd'=> filetype = FileType::TypeDirectory,
-            '-'=> filetype = FileType::TypeFile,
+        match input {
+            "link"=> filetype = FileType::TypeLink,
+            "directory"=> filetype = FileType::TypeDirectory,
+            "regular file"|"regular empty file"=> filetype = FileType::TypeFile,
             _=> filetype = FileType::TypeUnknown
         }
         return filetype;
@@ -249,7 +241,8 @@ impl SessionManager {
     /// Parses an ls -al command at the directory's path. This will store file information
     /// into the directory object
     pub fn get_directory(&mut self, d: &mut Directory) -> Result<(), Error>{
-        let dir_str = self.run_command(format!("ls -al {}", d.path.get_path()))?;
+        println!("cd {} && stat .* --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n'", d.path.get_path());
+        let dir_str = self.run_command(format!("(cd {} && stat .* * --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n')", d.path.get_path()))?;
         d.files = Directory::parse_string(dir_str);
         return Ok(());
     }
