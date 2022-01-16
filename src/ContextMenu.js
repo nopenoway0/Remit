@@ -1,10 +1,12 @@
 import { ListItemText, MenuItem, MenuList, Paper } from "@mui/material";
 import { Component } from "react/cjs/react.production.min";
+import React from 'react'
 
 class ContextMenu extends Component {
 
     constructor(props) {
         super(props);
+        this.dom_ref = React.createRef();
     }
 
     /**
@@ -25,15 +27,23 @@ class ContextMenu extends Component {
         return menuitems;
     }
 
+    contains(e) {
+        return this.dom_ref.contains(e.target);
+    }
+
     render() {
         if (!this.props.open) {
-            return (<div sx={{position:"fixed"}}></div>);
+            return (<div ref={ref=>this.dom_ref=ref} sx={{position:"fixed"}}></div>);
         }
-        return (<Paper sx={{position:"absolute", overflow:"hidden", zIndex:10, left:this.props.left, top:this.props.top}}>
-                    <MenuList>
-                        {this.props.menuitems}
-                    </MenuList>
-                </Paper>);
+        return (
+                <div ref={ref=>this.dom_ref=ref}>
+                    <Paper   sx={{position:"absolute", overflow:"hidden", zIndex:10, left:this.props.left, top:this.props.top}}>
+                        <MenuList>
+                            {this.props.menuitems}
+                        </MenuList>
+                    </Paper>                  
+                </div>
+                );
     }
 }
 
