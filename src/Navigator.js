@@ -15,11 +15,6 @@ import { ConnectingAirportsOutlined, ContentCutTwoTone, DeleteForeverSharp, Driv
 class Navigator extends Component {
 
     componentDidMount() {
-        document.addEventListener('click', (e) => {
-            if (this.state.contextMenuOpen) {
-                this.setState({contextMenuOpen: false});
-            }
-        });
         /*document.addEventListener('contextmenu', (e)=> {
             e.preventDefault();
             //this.setState({contextMenuOpen:true, contextMenuItems: ContextMenu.build_items([{text:"New File", callback:null}])});
@@ -27,12 +22,21 @@ class Navigator extends Component {
         this.listFiles((files)=>this.setState({files:files}), (e)=>{console.log(e)});
     }
 
+    clearEditingMode() {
+        let files = [...this.state.files];
+        for (const index of this.state.editingIndeces) {
+            files[index].editing = false;
+        }
+        this.setState({files: files});
+    }
+
     constructor(props) {
         super(props);
         this.state = {files:[],
                         lockScreen:false,
                         contextmenu:<div></div>,
-                        contextMenuPos:{x:0, y:0}};
+                        contextMenuPos:{x:0, y:0},
+                        editingIndeces:[]};
     }
 
     listFiles(successHandler, errorHandler) {
@@ -48,27 +52,57 @@ class Navigator extends Component {
     }
 
     delete(file, type) {
-        console.log("deleting", file);
+        this.setState({lockScreen: true, contextMenuOpen: false})
         invoke("plugin:Remit|delete_file", {file: file})
             .then((f) => {
                 console.log(f);
                 this.listFiles((files)=>this.setState({files:files, lockScreen: false}), (e)=>{});                
             })
-            .catch((e)=>console.log(e));
+            .catch((e)=>{
+                this.setState({lockScreen: false});
+                console.log(e)
+            });
     }
 
-    rename(file, type) {
+    rename(file, new_name) {
         console.log("rename " + file);
+        invoke("plugin:Remit|rename_file", {file:file, newname: new_name})
+            .then((f) => {
+                console.log(f);
+                this.listFiles((files)=>this.setState({files:files, lockScreen: false}), (e)=>{});                
+            })
+            .catch((e) => console.log(e));
     }
 
-    handleNavigatorRightClick(type, file, event) {
-        const {clientX, clientY} = event;
+    renameHandler(file, obj) {
+        this.clearEditingMode();
+        this.enableEditMode(obj.props.index);
+        this.setState({contextMenuOpen: false});
+    }
+
+    enableEditMode(index) {
+        let files = [...this.state.files];
+        files[index].editing = true;
+        let editingIndeces = [...this.state.editingIndeces];
+        editingIndeces.push(index);
+        this.setState({files:files, editingIndeces:editingIndeces});
+    }
+
+    handleEnter(oldname, e) {
+        this.rename(oldname, e.target.value);
+        this.clearEditingMode();
+    }
+
+    handleNavigatorRightClick(type, file, data) {
+        if (data.obj.props.index == 1)
+            return;
+        const {clientX, clientY} = data.event;
         const pos = {x:clientX, y:clientY};
         const delete_icon = <DeleteForeverSharp></DeleteForeverSharp>;
         const rename_icon = <DriveFileRenameOutlineSharp></DriveFileRenameOutlineSharp>;
         if (type == "TypeDirectory" || type == "TypeFile") {
-            const directory_menu_items = [{text:"Delete", callback:()=>this.delete(file, type), icon:delete_icon},
-                                            {text:"Rename", callback:()=>this.rename(file, type), icon:rename_icon}];
+            const directory_menu_items = [{text:"Delete", callback:()=>this.delete(file, type, "renamed file"), icon:delete_icon},
+                                            {text:"Rename", callback:()=>this.renameHandler(file, data.obj), icon:rename_icon}];
             this.setState({contextMenuOpen:true, contextMenuItems:ContextMenu.build_items(directory_menu_items),
                             contextMenuPos:pos});
         }
@@ -109,15 +143,19 @@ class Navigator extends Component {
 
     render() {
         let files = [];
-        this.state.files.forEach((file) => {
+        let index = 0;
+        for (const file of this.state.files) {
             if (file.name != ".") {
                 files.push(<Grid item xs={4}>
-                                <Paper>
-                                    <RemitFile key={file.name} onContextMenu={(e)=>{this.handleNavigatorRightClick(file.type, file.name, e)}} onClick={()=>{this.handleNavigatorClick(file.type, file.name)}} type={file.type} name={file.name} size={file.size}></RemitFile>
-                                </Paper>
-                            </Grid>);
+                    <Paper>
+                        <RemitFile key={file.name} index={index} editing={file.editing} onContextMenu={(e)=>{this.handleNavigatorRightClick(file.type, file.name, e)}} 
+                            onClick={()=>{this.handleNavigatorClick(file.type, file.name)}} type={file.type} name={file.name} size={file.size}
+                            onEnter={this.handleEnter.bind(this)} onEsc={()=>{this.clearEditingMode.bind(this); this.setState({contextMenuOpen: false})}}></RemitFile>
+                    </Paper>
+                </Grid>);    
             }
-        })
+            index += 1;
+        }
         return (<div className="App">
             <ContextMenu open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
             <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
