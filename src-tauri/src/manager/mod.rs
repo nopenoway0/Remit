@@ -46,6 +46,14 @@ impl Manager {
         return Ok(m);
     }
 
+    pub fn create_file(&mut self, filename: &String) -> Result<(), IOError>{
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        remote_path.pushd(filename.clone());
+        self.ssh_m.run_command(format!("touch \"{}\"", remote_path.get_path()))?;
+        return Ok(());
+    }
+
     pub fn rename_file(&mut self, file: String, new_name: String) -> Result<(), IOError> {
         let mut local_path = Remit::SystemPath::new();
         local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
