@@ -4,9 +4,9 @@ import { invoke } from '@tauri-apps/api/tauri';
 import {Button, Grid, Paper, Backdrop} from '@mui/material'
 import RemitFile from "./RemitFile"
 import ContextMenu from "./ContextMenu"
+import EntryDialog from "./EntryDialog"
 import './App.css'
-import { DeleteForeverSharp, DriveFileRenameOutlineSharp, FolderSharp, FileUploadSharp } from '@mui/icons-material';
-
+import { DeleteForeverSharp, DriveFileRenameOutlineSharp, FolderSharp, FileUploadSharp, Email } from '@mui/icons-material';
 /**
  * The navigator component is the main portion of the application. This shows the files in the current directory
  * and processes clicks on these components. It gets its data from the Rust which uses a combination of ssh2 and rclone
@@ -20,7 +20,9 @@ class Navigator extends Component {
                         lockScreen:false,
                         contextmenu:<div></div>,
                         contextMenuPos:{x:0, y:0},
-                        editingIndeces:[]};
+                        editingIndeces:[],
+                        showNameDialog: false,
+                        createDialogCallbacks:{}};
         this.menu = React.createRef();
         this.menuHandler = this.outOfMenuClickHandler.bind(this);
         this.disableDefaultContextMenu = (e)=>{e.preventDefault()};
@@ -122,11 +124,39 @@ class Navigator extends Component {
         data.event.stopPropagation();
     }
 
+    createFile(filename) {
+        this.setState({lockScreen: true, contextMenuOpen: false});
+        invoke("plugin:Remit|create_file", {filename:filename})
+            .then((e) => {
+                this.listFiles((files)=>this.setState({files:files, lockScreen: false}), (e)=>{console.log(e)});
+            })
+            .catch((e) => {
+                console.log(e);
+                this.setState({lockScreen: false})
+            })
+    }
+
+    openCreateDialog(type) {
+        if (type == "file") {
+            const cancel_callback = text => this.setState({showNameDialog: false});
+            const accept_callback = (text) => {
+                this.setState({showNameDialog: false, lockScreen: true})
+                if (text) {
+                    this.createFile(text);
+                } else {
+                    this.setState({lockScreen: true});
+                }
+            }
+            this.setState({showNameDialog: true, createDialogCallbacks:{decline: cancel_callback.bind(this),
+                                                                        accept:accept_callback.bind(this)}});
+        }
+    }
+
     handleBackgroundRightClick(event) {
         const {clientX, clientY} = event;
         const pos = {x: clientX, y: clientY};
         const menu_items = [{text:"New Directory", callback: ()=>{}, icon:<FolderSharp/>},
-                            {text:"New File", callback:()=>{}, icon:<FileUploadSharp/>}];
+                            {text:"New File", callback:this.openCreateDialog.bind(this, "file"), icon:<FileUploadSharp/>}];
         this.setState({contextMenuOpen: true, contextMenuItems:ContextMenu.build_items(menu_items),
                         contextMenuPos:pos});
     }
@@ -180,6 +210,7 @@ class Navigator extends Component {
             index += 1;
         }
         return (<div className="App" onContextMenu={(e)=>this.handleBackgroundRightClick(e)}>
+                    <EntryDialog onAccept={this.state.createDialogCallbacks.accept} onDecline={this.state.createDialogCallbacks.decline} decline_button_text="Cancel" accept_button_text="Ok" title="Create New File" prompt="Enter File Name" show={this.state.showNameDialog}/>
                     <ContextMenu key="menu" ref={this.menu} open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
                     <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
                     <Button onClick={this.disconnect.bind(this)}>Disconnect</Button>
