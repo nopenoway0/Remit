@@ -170,6 +170,16 @@ struct Remit<R: Runtime> {
   }
 
   #[tauri::command]
+  async fn create_file(filename: String) -> Result<(), String> {
+    let mut m_filename = filename.clone();
+    run_api_command::<String>(&mut m_filename, &|filename: &mut String, api: &mut ApiRef| -> Result<(), IOError> {
+      api.create_file(filename)?;
+      return Ok(());
+    })?;
+    return Ok(());
+  }
+
+  #[tauri::command]
   fn rclone_exe_exists() -> bool {
     let mut res = false;
     let _r = run_api_command::<bool>(&mut res, &|res:&mut bool, api: &mut ApiRef| -> Result<(), IOError> {
@@ -196,7 +206,7 @@ struct Remit<R: Runtime> {
     pub fn new() -> Self {
       Self {
         invoke_handler: Box::new(tauri::generate_handler![connect,disconnect, 
-                                                          check_dependencies, 
+                                                          check_dependencies, create_file,
                                                           get_config_names, rename_file,
                                                           list_current_directory,
                                                           pushd, download,delete_file,
