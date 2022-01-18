@@ -2,6 +2,9 @@ import { ListItemText, MenuItem, MenuList, Paper } from "@mui/material";
 import { Component } from "react/cjs/react.production.min";
 import React from 'react'
 
+/**
+ * Creates a context menu.
+ */
 class ContextMenu extends Component {
 
     constructor(props) {
@@ -10,8 +13,13 @@ class ContextMenu extends Component {
     }
 
     /**
+     * Creates a list of MenuItems from the list of objects passed into the method.
      * 
-     * @param {*} items an object of text, material ui icon and callback 
+     * @param {Object[]} items an a list of objects consisting of the items text, an onclick callback and a Material UI icon
+     * @param {string} items[].text the text in the MenuItem
+     * @param {callback} items[].callback a callback for when the item is clicked
+     * @param {MaterialUIIcon} [items[].icon] a MaterialUIIcon to appear alongside the text in the MenuItem
+     * @return {MenuItem[]} created list of MenuItems
      */
     static build_items(items) {
         let menuitems = [];
@@ -27,6 +35,11 @@ class ContextMenu extends Component {
         return menuitems;
     }
 
+    /**
+     * Checks a click event to see if it was in the ContextMenu
+     * @param {event} e a click event 
+     * @returns true if the click occured in the ContextMenu component - otherwise, false
+     */
     contains(e) {
         return this.dom_ref.contains(e.target);
     }

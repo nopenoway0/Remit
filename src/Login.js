@@ -13,17 +13,26 @@ import RemitUtilities from './utils';
 var aesjs = require('aes-js')
 
 /**
- * Manages the login state of the application. Loads saved ssh configurations using
- * the rust backend method get_config_names
+ * @class RemitConfiguration
+ * @type {Object}
+ * @param {string} username username
+ * @param {string} name configuration name
+ * @param {string} host configuration host
+ * @param {number} port ssh port on server
+ * @param {string} password password
+ */
+
+/**
+ * Manages the login state of the application
  */
 class Login extends Component{
 
-  componentDidMount() {
-    /*document.addEventListener('contextmenu', (e)=> {
-      e.preventDefault();
-    });*/
-  }
-
+  /**
+   * Create the login page
+   * @param {Object} props
+   * @param {callback} props.loggedInCallback Once a successful ssh session has been created, the Login page will call this function
+   * @param {callback} props.openSaveManagerHandler When the criteria to open the save manager window is met, this function will be called
+   */
   constructor(props) {
     super(props);
     let textfields = [{label:"Username", required:true, type:"standard", error:false, error_text:""},
@@ -47,19 +56,36 @@ class Login extends Component{
 
   }
 
+  /**
+   * Show the OK Dialog with the passed in text 
+   * @param {string} text Text to appear in the Ok Dialog 
+   * @access private
+   */
   showDialog(text) {
     this.setState({displayDialog: true, dialogText: text});
   }
 
+  /**
+   * Disable all inputs on the page
+   * @access private
+   */
   disableInputs() {
     this.setState({inputs:false, callbacks:{saveManager: this.emptyFunction, configTab: this.emptyFunction}});
   }
 
+  /**
+   * Enable all inputs on the page
+   * @access private
+   */
   enabledInputs() {
     this.setState({inputs: true, callbacks:{saveManager: this.openSaveManager.bind(this), configTab: this.openConfigList.bind(this)}});
   }
 
-
+  /**
+   * Call the backend to load existing configurations
+   * @returns {Promise<Object[]>|Promise<string>} Returns a promise to the loaded configurations, otherwise it will contain a string explaining the error
+   * @access private
+   */
   loadConfigs() {
     return new Promise((res, rej) => {
       this.getConfigs()
@@ -76,18 +102,39 @@ class Login extends Component{
     })
   }
 
+  /**
+   * Get all existing configurations
+   * @returns {Promise<RemitConfiguration[]>|Promise<string>} Returns a Promise which will contain the found configurations
+   * @access private
+   */
   getConfigs() {
     return invoke("plugin:Remit|get_config_names")
   }
 
+  /**
+   * Open up the lockscreen to prevent input
+   * @access private
+   */
   disableScreen() {
     this.setState({disableScreen: true});
   }
 
+  /**
+   * Set the chosen config according to the passed in name
+   * @param {string} name Name of the configuration to switch to
+   * @access private 
+   */
   useConfig(name) {
     this.setState({config: this.state.configs[name], openConfigList: false});
   }
 
+  /**
+   * Pads a string up to the desired_length with the f char
+   * @param {string} str incoming string 
+   * @param {number} desired_length the length to pad the string to
+   * @returns {string} Padded string
+   * @access private
+   */
   addPadding(str, desired_length) {
     while (str.length < desired_length) {
         str += "f";
@@ -95,11 +142,22 @@ class Login extends Component{
     return str;
 }
 
+  /**
+   * Retrieve the login form contents
+   * @returns {Object} A key->value object of the form fields and values
+   * @access private
+   */
   getFormData() {
     let fields = this.state.textfields.map(f=>RemitUtilities.string_to_key(f.label));
     return RemitUtilities.extract_elements(fields);
   }
 
+  /**
+   * Verify that all required fields have been filled out. If errors occur, mark the fields that aren't filled out properly
+   * @param {Object} form_data 
+   * @returns Whether or not an error has occured.
+   * @access private
+   */
   validateFormData(form_data) {
     let textfields = [...this.state.textfields];
     let error = false;
@@ -113,6 +171,12 @@ class Login extends Component{
     return !error;
   }
 
+  /**
+   * Establish a connection by calling the connect backend function
+   * @returns {Promise<null, string>} A promise to the connection status. If successful, nothing is returned. If an error occurs it the Promise
+   * will contain a string describing the error
+   * @access private
+   */
   connect(){
     return new Promise((res, rej) => {
       this.disableInputs();
