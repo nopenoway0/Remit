@@ -4,7 +4,7 @@ pub mod rustssh{
 use std::process::Command;
 use std::env::current_dir;
 use std::sync::{Arc, Mutex};
-
+use std::fs::{remove_file, rename};
 use crate::*;
 
 /// Primary manager over the ssh, rclone and config managers. 
@@ -44,6 +44,65 @@ impl Manager {
                         custom_path: ".remote".to_string()/*String::new()*/};
         m.config_m.load_configs()?;
         return Ok(m);
+    }
+
+    pub fn create_file(&mut self, filename: &String) -> Result<(), IOError>{
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        remote_path.pushd(filename.clone());
+        self.ssh_m.run_command(format!("touch \"{}\"", remote_path.get_path()))?;
+        return Ok(());
+    }
+
+    pub fn rename_file(&mut self, file: String, new_name: String) -> Result<(), IOError> {
+        let mut local_path = Remit::SystemPath::new();
+        local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        local_path.pushd(file.clone());
+        remote_path.pushd(file);
+        let mut new_path = local_path.clone();
+        new_path.popd();
+        new_path.pushd(new_name.clone());
+
+        println!("rename \"{}\" to \"{}\"", local_path.get_windows_path_local(), new_path.get_windows_path_local());
+        let _r = rename(local_path.get_windows_path_local(), new_path.get_windows_path_local());
+        let mut remote_path_new = remote_path.clone();
+        remote_path_new.popd();
+        remote_path_new.pushd(new_name);
+        
+        println!("mv \"{}\" \"{}\"", remote_path.get_path(), remote_path_new.get_path());
+        self.ssh_m.run_command(format!("mv \"{}\" \"{}\"", remote_path.get_path(), remote_path_new.get_path()))?;
+
+        return Ok(());
+    }
+
+    /// delete a file both remotely and locally. Only uses remove_file and rm ( no -r ) so doesn't work for directories
+    /// Will need a more robust version to prevent accidental removal of entire directory trees
+    pub fn delete_file(&mut self, file: String) -> Result<String, IOError>{
+        let mut local_path = Remit::SystemPath::new();
+        local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
+        let mut remote_path = Remit::SystemPath::new();
+        remote_path.set_win_path(self.dir.path.get_path());
+        local_path.pushd(file.clone());
+        remote_path.pushd(file);
+
+        let mut result_string: String = "".to_string();
+        // delete locally
+        let res1 = remove_file(local_path.get_windows_path_local());
+        if res1.is_err() {
+            result_string += &res1.unwrap_err().to_string();
+        }
+        println!("{}",local_path.get_windows_path_local());
+        // delete remotely
+        println!("rm \"{}\"", remote_path.get_path());
+        let res2 = self.ssh_m.run_command(format!("rm \"{}\"", remote_path.get_path()));
+        if res2.is_err() {
+            result_string += &res2.unwrap_err().to_string();
+        } else {
+            result_string += &res2.unwrap();
+        }
+        return Ok(result_string);
     }
 
     /// Create a manager with configs loaded and params pass into it
@@ -152,9 +211,9 @@ impl Manager {
         local_path.set_win_path(format!("{}\\.remote\\{}", self.rclone_m.lock().unwrap().chosen_config.clone(), self.dir.path.get_windows_path_local()));
         let mut remote_path = Remit::SystemPath::new();
         remote_path.set_win_path(self.dir.path.get_path());
-        let r = self.rclone_m.lock().unwrap().download_remote_file(local_path.clone(), remote_path, name.clone());
+        let r = self.rclone_m.lock().unwrap().download_remote_file(local_path.clone(), remote_path, name.clone()).unwrap();
         // on a success, if open is set then open the file using windows explorer ( allows a chance to set the default application)
-        if r?.success() {
+        if r.success() {
             open.map(|open: bool| {
                 if open {
                     local_path.pushd(name);
@@ -165,7 +224,7 @@ impl Manager {
             });
             return Ok(());
         } else {
-            return Err(IOError::new(IOErrorKind::Other, "error during download"));
+            return Err(IOError::new(IOErrorKind::Other, r.to_string()));
         }
     }
 
