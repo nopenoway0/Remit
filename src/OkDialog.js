@@ -6,7 +6,14 @@ import { Dialog, DialogTitle, Button, DialogContent } from '@mui/material';
  * A simple dialog with an ok button. Once pressed the dialog will run the onClick command
  */
 class OkDialog extends Component {
-    
+    /**
+     * 
+     * @param {Object} props
+     * @param {bool} props.show Whether the OK dialog should be visible or not
+     * @param {string} props.title The title of the dialog window
+     * @param {string} props.text The message of the dialog window
+     * @param {NoArgNoReturnCallback} onClick Called when ok button is clicked
+     */
     constructor(props) {
         super(props);
     }

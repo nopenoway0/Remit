@@ -4,11 +4,19 @@ import { Component } from 'react/cjs/react.production.min';
 import { Box } from '@mui/system';
 
 /**
- * Button class that on click disables itself and renders a loader on top. Takes in a sucess and error method. Before running these methods
- * enable and hide the loader
+ * A button class with a built in loader. The button will automatically disable itself upon click until both the handleClick and handleSuccess/handleError
+ * functions are completed
  */
 class ButtonLoader extends Component {
 
+    /**
+     * Creates a ButtonLoader
+     * @param {Object} props
+     * @param {ButtonLoader~onClick} props.handleClick A click handler passed in via prop. Must return a promise
+     * @param {string} props.text Text that will be inside the button passed in via prop
+     * @param {ButtonLoader~handleOutcome} [props.handleSuccess] A handler to handle a successful run of the click handler passed in via prop
+     * @param {ButtonLoader~handleOutcome} [props.handleError] A handler to handle a failed run of the click handler passed in via prop
+     */
     constructor(props) {
         super(props);
         this.state = {disabled: false,
@@ -16,6 +24,11 @@ class ButtonLoader extends Component {
     }
 
 
+    /**
+     * Set the button to its loading state and run the passed in onClick function. Upon success or failure, set the button to its clickable state
+     * and then run the corresponding success or fail handler
+     * @access private
+     */
     handleClick() {
         this.setState({disabled: true, loading: true});
         this.props.onClick()
@@ -29,6 +42,10 @@ class ButtonLoader extends Component {
             });
     }
 
+    /**
+     * 
+     * @access private 
+     */
     render() {
         return (<Box sx={{position: "relative"}}>
                     <Button disabled={this.state.disabled} onClick={this.handleClick.bind(this)} variant="contained">
@@ -42,3 +59,15 @@ class ButtonLoader extends Component {
 
 
 export default ButtonLoader;
+
+/**
+ * Function performed when the button loader is left clicked
+ * @callback ButtonLoader~onClick
+ * @return {Promise<*,*>} Return a promise to be handled by the according handleSuccess or handleFailure functions
+ */
+
+/**
+ * Handle successful output from the onClick function
+ * @callback ButtonLoader~handleOutcome
+ * @param {*} data Output from the onClick
+ */

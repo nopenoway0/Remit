@@ -8,10 +8,27 @@ import { Drawer, List, ListItem, ListItemIcon, ListItemText, Typography } from '
  */
 class DynamicDrawer extends Component {
 
+    /**
+     * Create a DynamicDrawer Component
+     * @param {Object} props 
+     * @param {GenericCallback} props.onClick Call this function when any element in the DynamicDrawer is clicked. 
+     *                                          It will pass the key {string} into this function. No return value is used
+     * @param {string} props.title The title of the element
+     * @param {string} props.type Set to map otherwise the element won't render
+     * @param {NoArgNoReturnCallback} props.onClose Use this function when the Drawer is closed
+     * @param {bool} props.open Choose whether to show the element
+     */
     constructor(props) {
         super(props);
     }
 
+    /**
+     * Constructs a list of ListItems from input. The input is a series of keys. The created components
+     * will pass the key into the props.onClick handler to be processed
+     * @param {Object[]} input a list of objects the contain a key
+     * @param {string} input[].key key for object. This will also be displayed as text
+     * @returns {ListItem[]} A list of ListItems with the keys set
+     */
     processMap(input) {
         let keys = [];
         Object.keys(input).forEach((key) => {

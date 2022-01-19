@@ -7,9 +7,22 @@ import { invoke } from '@tauri-apps/api/tauri';
 import "./App.css"
 import RemitUtilities from './utils';
 var aesjs = require('aes-js')
-
+/**
+ * A window that allows users to save configurations allowing easier login
+ */
 class SaveMananger extends Component {
 
+    /**
+     * 
+     * @param {Object} props
+     * @param {NoArgNoReturnCallback} props.onClose Handle onClose event 
+     * @param {string} [props.name]
+     * @param {string} [props.host]
+     * @param {string} [props.username]
+     * @param {string} [props.password]
+     * @param {string} [props.encryption_key]
+     * @param {number} [props.port]
+     */
     constructor(props) {
         super(props);
         let textfields = [{label:"Username", type:"standard", error:false, error_text:""},
@@ -25,12 +38,22 @@ class SaveMananger extends Component {
                         textfields: textfields};
     }
 
+    /**
+     * Retrieves designated elements and their values and puts them in a dict id->value
+     * @returns {Object<string, string>}
+     * @private
+     */
     getFormData() {
         let fields = this.state.textfields.map(f=>RemitUtilities.string_to_key(f.label));
         return RemitUtilities.extract_elements(fields);
     }
 
-    // build form text. autocomplete false we wont save config information
+    /**
+     * Constructs Material UI TextField list to be inserted on rendering
+     * @param {TextFieldRecipe[]} textfields 
+     * @returns {TextField[]}
+     * @private
+     */
     processTextFields(textfields) {
         let result = [];
         for (const field of textfields) {
@@ -43,7 +66,11 @@ class SaveMananger extends Component {
         return result;
     }
 
-    //TODO rewrite a better for loop
+    /**
+     * Scan the form for empty text fields
+     * @returns {Object<string, bool>} A map consisting of the error field id and true. If the map contains the id, then it is incorrect
+     * @private
+     */
     getIncorrectInputs() {
         let fields = this.getFormData();
         let error_fields = {errors:0};
@@ -56,6 +83,13 @@ class SaveMananger extends Component {
         return error_fields;
     }
 
+    /**
+     * Pad a string to the desired length. Bad for security
+     * @param {string} str 
+     * @param {number} desired_length 
+     * @returns {string} padded string
+     * @private
+     */
     addPadding(str, desired_length) {
         while (str.length < desired_length) {
             str += "f";
@@ -63,6 +97,11 @@ class SaveMananger extends Component {
         return str;
     }
 
+    /**
+     * Attempt to save the configuration
+     * @returns {Promise<string, string>} Contains a message on either success or failure
+     * @private
+     */
     save() { 
         return new Promise((res, rej) => {
             let error_map = this.getIncorrectInputs();
@@ -93,14 +132,28 @@ class SaveMananger extends Component {
         });
     }
 
+    /**
+     * enable dialog and set dialog click handler
+     * @param {string} s dialog text 
+     * @private
+     */
     success(s) {
         this.setState({showDialog: true, dialogText: s, dialogClickHandler:this.closeHandler.bind(this)});
     }
 
+    /**
+     * enable dialog and set click handler
+     * @param {string} f dialog text 
+     * @private
+     */
     fail(f) {
         this.setState({showDialog: true, dialogText: f, dialogClickHandler:()=>this.setState({showDialog: false})});
     }
 
+    /**
+     * Run the close handler
+     * @private
+     */
     closeHandler() {
         this.props.onClose();
     }

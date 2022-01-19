@@ -7,6 +7,7 @@ import ContextMenu from "./ContextMenu"
 import EntryDialog from "./EntryDialog"
 import './App.css'
 import { DeleteForeverSharp, DriveFileRenameOutlineSharp, FolderSharp, FileUploadSharp, Email } from '@mui/icons-material';
+import {FileType} from './constants'
 /**
  * The navigator component is the main portion of the application. This shows the files in the current directory
  * and processes clicks on these components. It gets its data from the Rust which uses a combination of ssh2 and rclone
@@ -14,6 +15,11 @@ import { DeleteForeverSharp, DriveFileRenameOutlineSharp, FolderSharp, FileUploa
  */
 class Navigator extends Component {
 
+    /**
+     * Create a Navigator instance
+     * @param {Object} props
+     * @param {NoArgNoReturnCallback} props.disconnectHandler This is function is called when the disconnect button is clicked 
+     */
     constructor(props) {
         super(props);
         this.state = {files:[],
@@ -28,23 +34,40 @@ class Navigator extends Component {
         this.disableDefaultContextMenu = (e)=>{e.preventDefault()};
     }
 
+    /**
+     * Add click and context menu listeners as well as load files on mount
+     * @access private
+     */
     componentDidMount() {
         document.addEventListener('click', this.menuHandler);
         document.addEventListener('contextmenu', this.disableDefaultContextMenu);
         this.listFiles((files)=>this.setState({files:files}), (e)=>{console.log(e)});
     }
 
+    /**
+     * Remove added listeners on unmount
+     * @access private
+     */
     componentWillUnmount() {
         document.removeEventListener('click', this.menuHandler);
         document.removeEventListener('contextmenu', this.disableDefaultContextMenu)
     }
 
+    /**
+     * Checks if a click happened inside of a context menu. If it did not, close the context menu
+     * @param {event} e Click event
+     * @access private
+     */
     outOfMenuClickHandler(e) {
         if(!this.menu.current.contains(e)) {
             this.setState({contextMenuOpen: false});
         }
     }
 
+    /**
+     * Clear file/directory editing mode. Any files that are being renamed will stop
+     * @access private
+     */
     clearEditingMode() {
         let files = [...this.state.files];
         for (const index of this.state.editingIndeces) {
@@ -53,6 +76,12 @@ class Navigator extends Component {
         this.setState({files: files});
     }
 
+    /**
+     * Load files in the current remote directory
+     * @param {Navigator~fileListHandler} successHandler On success the files will be passed to this function
+     * @param {Navigator~fileListHandler} errorHandler On failure, the failure will be passed to this function
+     * @access private
+     */
     listFiles(successHandler, errorHandler) {
         invoke("plugin:Remit|list_current_directory", {path: "."})
             .then((files)=>{
@@ -65,6 +94,12 @@ class Navigator extends Component {
         });
     }
 
+    /**
+     * Delete the passed in file both locally and remotely
+     * @param {string} file The file name 
+     * @param {FileType} [type] Not currently used
+     * @access private
+     */
     delete(file, type) {
         this.setState({lockScreen: true, contextMenuOpen: false})
         invoke("plugin:Remit|delete_file", {file: file})
@@ -78,6 +113,12 @@ class Navigator extends Component {
             });
     }
 
+    /**
+     * Renames a file both locally and remotely
+     * @param {string} file The file name
+     * @param {string} new_name Name to change to
+     * @access private
+     */
     rename(file, new_name) {
         console.log("rename " + file);
         invoke("plugin:Remit|rename_file", {file:file, newname: new_name})
@@ -88,12 +129,23 @@ class Navigator extends Component {
             .catch((e) => console.log(e));
     }
 
+    /**
+     * Sets a directory or file into renaming mode. This enables the text field so that the user can change the name
+     * @param {string} [file] The file name. Not currently used 
+     * @param {RemitFile} obj The RemitFile element that is to be renamed
+     * @access private
+     */
     renameHandler(file, obj) {
         this.clearEditingMode();
         this.enableEditMode(obj.props.index);
         this.setState({contextMenuOpen: false});
     }
 
+    /**
+     * Enables editing mode on a RemitFile component
+     * @param {number} index The index of the RemitFile in this.state.files
+     * @access private 
+     */
     enableEditMode(index) {
         let files = [...this.state.files];
         files[index].editing = true;
@@ -102,11 +154,26 @@ class Navigator extends Component {
         this.setState({files:files, editingIndeces:editingIndeces});
     }
 
+    /**
+     * On enter click off the necessary renaming functions and disable editing mode on the component
+     * @param {string} oldname old file name
+     * @param {event} e Enter keydown even
+     * @access private 
+     */
     handleEnter(oldname, e) {
         this.rename(oldname, e.target.value);
         this.clearEditingMode();
     }
 
+    /**
+     * Handle a right click on a RemitFile component
+     * @param {FileType} type
+     * @param {string} file File name 
+     * @param {object} data
+     * @param {RemitFile} data.obj The right clicked RemitFile
+     * @param {event} data.event The right click event 
+     * @access private
+     */
     handleNavigatorRightClick(type, file, data) {
         if (data.obj.props.index == 1)
             return;
@@ -114,7 +181,7 @@ class Navigator extends Component {
         const pos = {x:clientX, y:clientY};
         const delete_icon = <DeleteForeverSharp></DeleteForeverSharp>;
         const rename_icon = <DriveFileRenameOutlineSharp></DriveFileRenameOutlineSharp>;
-        if (type == "TypeDirectory" || type == "TypeFile") {
+        if (type == FileType.TypeDirectory || type == FileType.TypeFile) {
             const directory_menu_items = [{text:"Delete", callback:()=>this.delete(file, type, "renamed file"), icon:delete_icon},
                                             {text:"Rename", callback:()=>this.renameHandler(file, data.obj), icon:rename_icon}];
             this.setState({contextMenuOpen:true, contextMenuItems:ContextMenu.build_items(directory_menu_items),
@@ -124,7 +191,11 @@ class Navigator extends Component {
         data.event.stopPropagation();
     }
 
-
+    /**
+     * Create a folder in the current directory
+     * @param {string} dirname 
+     * @private
+     */
     createDir(dirname) {
         this.setState({lockScreen: true, contextMenuOpen: false});
         invoke("plugin:Remit|create_dir", {dirname:dirname})
@@ -137,6 +208,11 @@ class Navigator extends Component {
             })
     }
     
+    /**
+     * Create a file in the current directory
+     * @param {string} filename 
+     * @access private
+     */
     createFile(filename) {
         this.setState({lockScreen: true, contextMenuOpen: false});
         invoke("plugin:Remit|create_file", {filename:filename})
@@ -149,10 +225,15 @@ class Navigator extends Component {
             })
     }
 
+    /**
+     * 
+     * @param {FileType} type Type of creation.
+     * @access private
+     */
     openCreateDialog(type) {
         const cancel_callback = text => this.setState({showNameDialog: false});
         var accept_callback = null;
-        if (type == "TypeFile") {
+        if (type == FileType.TypeFile) {
             accept_callback = (text) => {
                 this.setState({showNameDialog: false, lockScreen: true})
                 if (text) {
@@ -161,7 +242,7 @@ class Navigator extends Component {
                     this.setState({lockScreen: true});
                 }
             }
-        } else if (type == "TypeDirectory") {
+        } else if (type == FileType.TypeDirectory) {
             accept_callback = (text) => {
                 this.setState({showNameDialog: false, lockScreen: true})
                 if (text) {
@@ -175,19 +256,30 @@ class Navigator extends Component {
             accept:accept_callback.bind(this)}});
     }
 
+    /**
+     * Handle a right click event that didn't occur on a RemitFile
+     * @param {event} event Right click event 
+     * @access private
+     */
     handleBackgroundRightClick(event) {
         const {clientX, clientY} = event;
         const pos = {x: clientX, y: clientY};
-        const menu_items = [{text:"New Directory", callback:this.openCreateDialog.bind(this, "TypeDirectory"), icon:<FolderSharp/>},
-                            {text:"New File", callback:this.openCreateDialog.bind(this, "TypeFile"), icon:<FileUploadSharp/>}];
+        const menu_items = [{text:"New Directory", callback:this.openCreateDialog.bind(this, FileType.TypeDirectory), icon:<FolderSharp/>},
+                            {text:"New File", callback:this.openCreateDialog.bind(this, FileType.TypeFile), icon:<FileUploadSharp/>}];
         this.setState({contextMenuOpen: true, contextMenuItems:ContextMenu.build_items(menu_items),
                         contextMenuPos:pos});
     }
 
+    /**
+     * Process left click on file or directory
+     * @param {FileType} type 
+     * @param {string} file File or Directory name
+     * @access private
+     */
     handleNavigatorClick(type, file) {
         this.setState({lockScreen:true})
         // do navigation
-        if (type == "TypeDirectory") {
+        if (type == FileType.TypeDirectory) {
             invoke("plugin:Remit|pushd", {d: file})
                 .then(()=>{
                     this.listFiles((files)=>this.setState({files:files, lockScreen: false}), (e)=>{});
@@ -195,7 +287,7 @@ class Navigator extends Component {
                 .catch((e)=>{
                     this.setState({lockScreen: false});
                 });
-        } else if(type == "TypeFile") {
+        } else if(type == FileType.TypeFile) {
             invoke("plugin:Remit|download", {filename: file, open:true})
                 .then(() => {
                     this.setState({lockScreen: false});
@@ -207,6 +299,11 @@ class Navigator extends Component {
         }
     }
 
+    /**
+     * Disconnect current ssh session
+     * @returns {Promise<string, string>} returns a promise to string explaining either the error or success
+     * @access private
+     */
     disconnect() {
         return invoke("plugin:Remit|disconnect")
         .catch((e)=> {
@@ -247,3 +344,9 @@ class Navigator extends Component {
 }
 
 export default Navigator;
+
+/**
+ * Called when file information is loaded
+ * @callback Navigator~fileListHandler
+ * @param {Navigator~ListFile[]} files List of files to be handled
+ */
