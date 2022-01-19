@@ -124,6 +124,19 @@ class Navigator extends Component {
         data.event.stopPropagation();
     }
 
+
+    createDir(dirname) {
+        this.setState({lockScreen: true, contextMenuOpen: false});
+        invoke("plugin:Remit|create_dir", {dirname:dirname})
+            .then((e) => {
+                this.listFiles((files)=>this.setState({files:files, lockScreen: false}), (e)=>{console.log(e)});
+            })
+            .catch((e) => {
+                console.log(e);
+                this.setState({lockScreen: false})
+            })
+    }
+    
     createFile(filename) {
         this.setState({lockScreen: true, contextMenuOpen: false});
         invoke("plugin:Remit|create_file", {filename:filename})
@@ -137,9 +150,10 @@ class Navigator extends Component {
     }
 
     openCreateDialog(type) {
-        if (type == "file") {
-            const cancel_callback = text => this.setState({showNameDialog: false});
-            const accept_callback = (text) => {
+        const cancel_callback = text => this.setState({showNameDialog: false});
+        var accept_callback = null;
+        if (type == "TypeFile") {
+            accept_callback = (text) => {
                 this.setState({showNameDialog: false, lockScreen: true})
                 if (text) {
                     this.createFile(text);
@@ -147,16 +161,25 @@ class Navigator extends Component {
                     this.setState({lockScreen: true});
                 }
             }
-            this.setState({showNameDialog: true, createDialogCallbacks:{decline: cancel_callback.bind(this),
-                                                                        accept:accept_callback.bind(this)}});
+        } else if (type == "TypeDirectory") {
+            accept_callback = (text) => {
+                this.setState({showNameDialog: false, lockScreen: true})
+                if (text) {
+                    this.createDir(text);
+                } else {
+                    this.setState({lockScreen: true});
+                }
+            }
         }
+        this.setState({showNameDialog: true, createDialogCallbacks:{decline: cancel_callback.bind(this),
+            accept:accept_callback.bind(this)}});
     }
 
     handleBackgroundRightClick(event) {
         const {clientX, clientY} = event;
         const pos = {x: clientX, y: clientY};
-        const menu_items = [{text:"New Directory", callback: ()=>{}, icon:<FolderSharp/>},
-                            {text:"New File", callback:this.openCreateDialog.bind(this, "file"), icon:<FileUploadSharp/>}];
+        const menu_items = [{text:"New Directory", callback:this.openCreateDialog.bind(this, "TypeDirectory"), icon:<FolderSharp/>},
+                            {text:"New File", callback:this.openCreateDialog.bind(this, "TypeFile"), icon:<FileUploadSharp/>}];
         this.setState({contextMenuOpen: true, contextMenuItems:ContextMenu.build_items(menu_items),
                         contextMenuPos:pos});
     }
@@ -210,7 +233,7 @@ class Navigator extends Component {
             index += 1;
         }
         return (<div className="App" onContextMenu={(e)=>this.handleBackgroundRightClick(e)}>
-                    <EntryDialog onAccept={this.state.createDialogCallbacks.accept} onDecline={this.state.createDialogCallbacks.decline} decline_button_text="Cancel" accept_button_text="Ok" title="Create New File" prompt="Enter File Name" show={this.state.showNameDialog}/>
+                    <EntryDialog onAccept={this.state.createDialogCallbacks.accept} onDecline={this.state.createDialogCallbacks.decline} decline_button_text="Cancel" accept_button_text="Ok" title="Create New" prompt="Enter Name" show={this.state.showNameDialog}/>
                     <ContextMenu key="menu" ref={this.menu} open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
                     <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
                     <Button onClick={this.disconnect.bind(this)}>Disconnect</Button>
