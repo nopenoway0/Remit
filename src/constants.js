@@ -2,7 +2,7 @@
  * FileType constants
  * @hideconstructor
  */
-class FileType {
+export class FileType {
     /**
      *@constant
      *@type {string}
