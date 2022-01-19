@@ -46,6 +46,7 @@ impl Manager {
         return Ok(m);
     }
 
+    /// Create folder in the current directory
     pub fn create_dir(&mut self, dirname: &String) -> Result<(), IOError> {
         let mut remote_path = self.dir.path.clone();
         remote_path.pushd(dirname.clone());
@@ -54,6 +55,7 @@ impl Manager {
         return Ok(());
     }
 
+    /// create a file in the current directory
     pub fn create_file(&mut self, filename: &String) -> Result<(), IOError>{
         let mut remote_path = Remit::SystemPath::new();
         remote_path.set_win_path(self.dir.path.get_path());
