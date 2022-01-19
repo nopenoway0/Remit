@@ -9,18 +9,9 @@ import DynamicDrawer from './DynamicDrawer'
 import { invoke } from '@tauri-apps/api/tauri';
 import './App.css'
 import RemitUtilities from './utils';
+import {FileType} from './constants'
 
 var aesjs = require('aes-js')
-
-/**
- * @class RemitConfiguration
- * @type {Object}
- * @param {string} username username
- * @param {string} name configuration name
- * @param {string} host configuration host
- * @param {number} port ssh port on server
- * @param {string} password password
- */
 
 /**
  * Manages the login state of the application
@@ -30,8 +21,8 @@ class Login extends Component{
   /**
    * Create the login page
    * @param {Object} props
-   * @param {callback} props.loggedInCallback Once a successful ssh session has been created, the Login page will call this function
-   * @param {callback} props.openSaveManagerHandler When the criteria to open the save manager window is met, this function will be called
+   * @param {NoArgNoReturnCallback} props.loggedInCallback Once a successful ssh session has been created, the Login page will call this function
+   * @param {Login~openSaveManager} props.openSaveManagerHandler When the criteria to open the save manager window is met, this function will be called
    */
   constructor(props) {
     super(props);
@@ -83,7 +74,7 @@ class Login extends Component{
 
   /**
    * Call the backend to load existing configurations
-   * @returns {Promise<Object[]>|Promise<string>} Returns a promise to the loaded configurations, otherwise it will contain a string explaining the error
+   * @returns {Promise<RemitConfigurationDict>|Promise<string>} Returns a promise to the loaded configurations, otherwise it will contain a string explaining the error
    * @access private
    */
   loadConfigs() {
@@ -104,7 +95,7 @@ class Login extends Component{
 
   /**
    * Get all existing configurations
-   * @returns {Promise<RemitConfiguration[]>|Promise<string>} Returns a Promise which will contain the found configurations
+   * @returns {Promise<RemitConfiguration[],string>} Returns a Promise which will contain the found configurations
    * @access private
    */
   getConfigs() {
@@ -155,7 +146,7 @@ class Login extends Component{
   /**
    * Verify that all required fields have been filled out. If errors occur, mark the fields that aren't filled out properly
    * @param {Object} form_data 
-   * @returns Whether or not an error has occured.
+   * @returns {bool} Whether or not an error has occured.
    * @access private
    */
   validateFormData(form_data) {
@@ -196,26 +187,50 @@ class Login extends Component{
     });
   }
 
+  /**
+   * Ignores input - enables input and then calls the login callback
+   * @param {Object} [r] 
+   * @access private
+   */
   handleSuccess(r) {
     this.enabledInputs();
     this.props.loggedInCallback();
   }
 
+  /**
+   * Enable inputs and show an error dialog
+   * @param {string} e Error message to show in dialog box 
+   * @access private
+   */
   handleError(e) {
     this.showDialog(e); 
     this.enabledInputs();
   }
 
+  /**
+   * Hide the Ok Dialog
+   * @access private
+   */
   hideDialog() {
     this.setState({displayDialog: false});
   }
 
+  /**
+   * Let key event passthrough to a controlled component
+   * @param {string} key Name of TextField id
+   * @param {event} e Key event
+   * @access private
+   */
   passthrough(key, e) {
     let c = {...this.state.config};
     c[key] = e.target.value;
     this.setState({config: c});
   }
 
+  /**
+   * Open the save manager window
+   * @access private
+   */
   openSaveManager() {
     this.props.openSaveManagerHandler(this.getFormData());
   }
@@ -230,6 +245,11 @@ class Login extends Component{
       })
   }
 
+  /**
+   * Create the form fields as a list of TextField
+   * @returns {TextField[]} Return the fields required in the submission form
+   * @access private
+   */
   createFormFields() {
     let fields = [];
     for (const field of this.state.textfields) {
@@ -270,3 +290,15 @@ class Login extends Component{
 };
 
 export default Login;
+
+/**
+ * When the open save manager conditions are met call this function
+ * @callback Login~openSaveManager
+ * @param {Object} form_data
+ * @param {FormField} form_data.username
+ * @param {FormField} form_data.password
+ * @param {FormField} form_data.host
+ * @param {FormField} form_data.port
+ * @param {FormField} form_data.name
+ * @param {FormField} form_data.encryption_key
+ */

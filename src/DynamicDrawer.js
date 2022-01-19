@@ -11,10 +11,11 @@ class DynamicDrawer extends Component {
     /**
      * Create a DynamicDrawer Component
      * @param {Object} props 
-     * @param {callback} props.onClick Call this function when any element in the DynamicDrawer is clicked. It will pass the key into this function
+     * @param {GenericCallback} props.onClick Call this function when any element in the DynamicDrawer is clicked. 
+     *                                          It will pass the key {string} into this function. No return value is used
      * @param {string} props.title The title of the element
      * @param {string} props.type Set to map otherwise the element won't render
-     * @param {callback} props.onClose Use this function when the Drawer is closed
+     * @param {NoArgNoReturnCallback} props.onClose Use this function when the Drawer is closed
      * @param {bool} props.open Choose whether to show the element
      */
     constructor(props) {

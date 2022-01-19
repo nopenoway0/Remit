@@ -7,6 +7,14 @@ import React from 'react'
  */
 class ContextMenu extends Component {
 
+    /**
+     * 
+     * @param {Object} props
+     * @param {bool} props.open Whether or not to show the context menu 
+     * @param {number} props.left Absolute position from the left
+     * @param {number} props.top Aboslute position from the top
+     * @param {MenuItems[]} props.menuitems A list of Material UI Menu items to render in the menu
+     */
     constructor(props) {
         super(props);
         this.dom_ref = React.createRef();
@@ -15,9 +23,9 @@ class ContextMenu extends Component {
     /**
      * Creates a list of MenuItems from the list of objects passed into the method.
      * 
-     * @param {Object[]} items an a list of objects consisting of the items text, an onclick callback and a Material UI icon
+     * @param {Object[]} items A a list of objects consisting of the items text, an onclick callback and a Material UI icon
      * @param {string} items[].text the text in the MenuItem
-     * @param {callback} items[].callback a callback for when the item is clicked
+     * @param {NoArgNoReturnCallback} items[].callback a callback for when the item is clicked
      * @param {MaterialUIIcon} [items[].icon] a MaterialUIIcon to appear alongside the text in the MenuItem
      * @return {MenuItem[]} created list of MenuItems
      */

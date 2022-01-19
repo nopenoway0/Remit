@@ -12,10 +12,10 @@ class ButtonLoader extends Component {
     /**
      * Creates a ButtonLoader
      * @param {Object} props
-     * @param {callback} props.handleClick A click handler passed in via prop. Must return a promise
+     * @param {ButtonLoader~onClick} props.handleClick A click handler passed in via prop. Must return a promise
      * @param {string} props.text Text that will be inside the button passed in via prop
-     * @param {callback} [props.handleSuccess] A handler to handle a successful run of the click handler passed in via prop
-     * @param {callback} [props.handleError] A handler to handle a failed run of the click handler passed in via prop
+     * @param {ButtonLoader~handleOutcome} [props.handleSuccess] A handler to handle a successful run of the click handler passed in via prop
+     * @param {ButtonLoader~handleOutcome} [props.handleError] A handler to handle a failed run of the click handler passed in via prop
      */
     constructor(props) {
         super(props);
@@ -59,3 +59,15 @@ class ButtonLoader extends Component {
 
 
 export default ButtonLoader;
+
+/**
+ * Function performed when the button loader is left clicked
+ * @callback ButtonLoader~onClick
+ * @return {Promise<*,*>} Return a promise to be handled by the according handleSuccess or handleFailure functions
+ */
+
+/**
+ * Handle successful output from the onClick function
+ * @callback ButtonLoader~handleOutcome
+ * @param {*} data Output from the onClick
+ */

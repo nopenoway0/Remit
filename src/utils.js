@@ -5,7 +5,7 @@ class RemitUtilities {
     /**
      * Extract data from the DOM using a list of strings and then return map id->value
      * @param {string[]} ids A list of ids to extract data from 
-     * @returns {Object} A map of element_id and their values after extracting them from the DOM 
+     * @returns {Object<string, string>} A map of element_id and their values after extracting them from the DOM 
      */
     static extract_elements(ids) {
         let data = {};
