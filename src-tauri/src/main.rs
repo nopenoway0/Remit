@@ -131,7 +131,7 @@ struct Remit<R: Runtime> {
   async fn delete_file(file: String) -> Result<String, String> {
     let mut arg = file.clone();
     run_api_command::<String>(&mut arg, &|arg: &mut String, api: &mut ApiRef| -> Result<(), IOError> {
-      *arg = api.delete_file(arg.clone())?;
+      *arg = api.delete_file(arg.clone(), true)?;
       return Ok(());
     })?;
     return Ok(arg);
@@ -180,6 +180,16 @@ struct Remit<R: Runtime> {
   }
 
   #[tauri::command]
+  async fn create_dir(dirname: String) -> Result<(), String> {
+    let mut m_dirname = dirname.clone();
+    run_api_command::<String>(&mut m_dirname, &|dirname: &mut String, api: &mut ApiRef| -> Result<(), IOError> {
+      api.create_dir(dirname)?;
+      return Ok(());
+    })?;
+    return Ok(());
+  }
+
+  #[tauri::command]
   fn rclone_exe_exists() -> bool {
     let mut res = false;
     let _r = run_api_command::<bool>(&mut res, &|res:&mut bool, api: &mut ApiRef| -> Result<(), IOError> {
@@ -208,7 +218,7 @@ struct Remit<R: Runtime> {
         invoke_handler: Box::new(tauri::generate_handler![connect,disconnect, 
                                                           check_dependencies, create_file,
                                                           get_config_names, rename_file,
-                                                          list_current_directory,
+                                                          list_current_directory, create_dir,
                                                           pushd, download,delete_file,
                                                           save_config, rclone_exe_exists]),
       }
