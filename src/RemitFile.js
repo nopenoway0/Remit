@@ -4,11 +4,24 @@ import { Component } from 'react/cjs/react.production.min'
 import { InsertDriveFileSharp } from '@mui/icons-material';
 import FolderSharpIcon from '@mui/icons-material/FolderSharp';
 import QuestionMarkSharpIcon from '@mui/icons-material/QuestionMarkSharp';
+import {FileType} from './constants'
 
 /**
  * A graphical representation of a RemitFile. A simple graphical file tile
  */
 class RemitFile extends Component {
+
+    /**
+     * 
+     * @param {Object} props 
+     * @param {string} props.name Name of the file
+     * @param {bool} props.editing Whether or not the file name is currently being edited
+     * @param {RemitFile~onEnter} props.onEnter Handle when the enter key is pressed on an edited file
+     * @param {RemitFile~onClick} props.onClick Handle when a RemitFile is left clicked
+     * @param {RemitFile~onContextMenu} props.onContextMenu Handle a right click
+     * @param {FileType} props.type Type of file
+     * @param {number} props.size Size of the file
+     */
     constructor(props) {
         super(props);
     }
@@ -29,8 +42,8 @@ class RemitFile extends Component {
         let icon;
         let size = "";
         switch(this.props.type) {
-            case "TypeDirectory":  icon = <FolderSharpIcon />; break;
-            case "TypeFile": icon = <InsertDriveFileSharp />; size = this.props.size; break;
+            case FileType.TypeDirectory:  icon = <FolderSharpIcon />; break;
+            case FileType.TypeFile: icon = <InsertDriveFileSharp />; size = this.props.size; break;
             default: icon = <QuestionMarkSharpIcon/>
         }
 
@@ -58,3 +71,24 @@ class RemitFile extends Component {
 }
 
 export default RemitFile;
+
+/**
+ * Callback to process when the enter key is press on an edited file
+ * @callback RemitFile~onEnter
+ * @param {string} name Current file name
+ * @param {event} e Enter event. Can extract new file name from this
+ */
+
+/**
+ * A funciton to process when a RemitFile component is clicked
+ * @callback RemitFile~onClick 
+ * @param {string} name Receives the file name
+ */
+
+/**
+ * A function to handle when the component is right clicked
+ * @callback RemitFile~onContextMenu
+ * @param {Object} data
+ * @param {RemitFile} data.obj RemitFile that was right clicked
+ * @param {event} data.e The right click event 
+ */
