@@ -1,3 +1,19 @@
+//! A Remit configuration manager. This class is responsible for loading and saving all the Remit configurations.
+//! 
+//! A Remit configuration file has a suffix .rcfg. It has very basic very strict format. Since the parsing is very basic, each file
+//! must match this format exactly. All this information is stored in order to connect to servers via ssh
+//! 
+//! ```
+//! name Name of the configuration
+//! password ssh password
+//! host the host
+//! port portasnumber
+//! username ssh username 
+//! ```
+//! 
+//! The configuration manager will store these configurations under the configs folder in the local directory. This is currently hardcoded but will most likely
+//! change to allow users to better manager their configuration files.
+
 pub mod rustssh {
 use std::collections::HashMap;
 use std::fs::read_dir;
@@ -6,6 +22,8 @@ use std::fs::write;
 use std::fs::create_dir_all;
 use crate::*;
 
+/// Contains the information of a Remit configuration file. Since Remit currently only supports username/password auth,
+/// the information in this struct is all that's needed to connect to a server
 #[derive(Clone)]
 pub struct RemitConfig {
     pub username: String,
@@ -14,25 +32,26 @@ pub struct RemitConfig {
     pub name: String,
     pub port: String,
 
-    /// contains path from default directory to config not currently used
+    /// This is the path from the local directory to the config file location. **Not currently used**
     pub path: Remit::SystemPath
 }
 
-/// manage remit configurations
-/// 
 /// ConfigManager is responsible for loading, reading, and saving Remit Configurations
 pub struct ConfigManager{
-    /// list of configs hashed by name
+    /// All loaded [`RemitConfig`]s stored by name
     configs: HashMap<String, RemitConfig>,
 
-    /// where to find the configurations to load
+    /// The path to where the configuration files are
     config_path: Remit::SystemPath
 }
 
 #[allow(dead_code)]
 impl ConfigManager {
 
-    /// construct config manager with default path set to ./configs
+    /// Creates a new ConfigManager with its config_path set to ./configs
+    /// # Arguments
+    /// * `initialize_dir` - If true, the directory in the config_path will be created. Recommended, as errors may occur if the directory does not
+    /// exist
     pub fn new(initialize_dir: bool) -> ConfigManager {
         let mut manager = ConfigManager{configs: HashMap::new(), config_path: Remit::SystemPath::new()};
         manager.config_path.pushd("configs".to_string());
@@ -42,13 +61,13 @@ impl ConfigManager {
         return manager;
     }
 
-    /// forces the creation of the ConfigManager's config_path
+    /// This forces creation of the configuration directory. If the directory has multiple levels, those will be created as well.
     pub fn force_config_directory(&self) {
         let path = self.config_path.get_windows_path_local();
         let _r = create_dir_all(path);
     }
 
-    /// load all the remit configs (.rcfg) found in the directory
+    /// Load all of the RemitConfiguration files - all files that contain `.rcfg` - in the config_path directory
     pub fn load_configs(&mut self) -> Result<(), IOError>{
         return read_dir(self.config_path.get_path().clone()).and_then(|paths: std::fs::ReadDir| -> Result<(), IOError>{
             for path in paths {
@@ -63,7 +82,9 @@ impl ConfigManager {
         });
     }
 
-    /// use filename to parse remit config
+    /// Parse a configuration file. The parsed file will be stored in the manager's config map
+    /// # Arguments
+    /// * `filename` - Name of configuration file
     fn read_config(&mut self, filename: String) {
         let contents = read_to_string(filename)
             .expect("could not read config file");
@@ -82,10 +103,17 @@ impl ConfigManager {
         self.configs.insert(config.name.clone(), config);
     }
 
+    /// Add a configuration file to the manager's config map. If 2 configurations have the same name, the old configuration
+    /// will be overwritten
+    /// # Arguments
+    /// * `config` - Config to add
     pub fn insert_config(&mut self, config: RemitConfig) {
         self.configs.insert(config.name.clone(), config);
     }
 
+    /// Save a configuration to file. If the names does not exist in the map of configs, then throw an error
+    /// # Arguments
+    /// * `name` - Name of config to save to file
     pub fn save_config(&mut self, name: &str) -> Result<(), std::io::Error> {
         if !self.configs.contains_key(name) {
             return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Config not found"));
@@ -99,7 +127,7 @@ impl ConfigManager {
         }
     }
 
-    // get a list of copied RemitConfigurations
+    /// Get a vector of all [`RemitConfig`] files in the manager's map
     pub fn get_configs(&mut self) -> Vec<RemitConfig>{
         let mut configs = Vec::<RemitConfig>::new();
         for c in self.configs.clone() {
@@ -110,8 +138,7 @@ impl ConfigManager {
 }
 
 impl RemitConfig {
-
-    // create an empty Remit Config
+    /// Create an empty [`RemitConfig`] object
     pub fn new() -> RemitConfig{
         return RemitConfig{username: String::new(), password: String::new(),
                                 host: String::new(), name: String::new(),
@@ -119,6 +146,5 @@ impl RemitConfig {
                                 path: Remit::SystemPath::new()};
     }
 }
-
 
 }
