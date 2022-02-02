@@ -1,0 +1,2 @@
+icon.ico filter=lfs diff=lfs merge=lfs -text
+icon.icns filter=lfs diff=lfs merge=lfs -text

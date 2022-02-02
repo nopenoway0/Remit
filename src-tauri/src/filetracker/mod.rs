@@ -2,8 +2,9 @@ pub mod rustssh {
     #[allow(unused_imports,dead_code)]
     use windows::Win32::Storage::FileSystem::*;
     use windows::Win32::System::Threading::CreateEventA;
+
     use windows::Win32::System::IO::{OVERLAPPED, GetOverlappedResult};
-    use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE, GetLastError};
+    use windows::Win32::Foundation::{HANDLE, INVALID_HANDLE_VALUE, GetLastError, PSTR};
     use std::thread::spawn;
     use std::sync::{Arc, Mutex};
     use std::env::current_dir;
@@ -64,10 +65,12 @@ pub mod rustssh {
 
             // create file handle to directory we're tracking
             unsafe {
-                self.dir_handle = Arc::new(CreateFileA(track_path.clone(), FILE_GENERIC_READ | SYNCHRONIZE | FILE_LIST_DIRECTORY | FILE_GENERIC_WRITE , FILE_SHARE_READ | FILE_SHARE_WRITE, std::ptr::null(), 
+                let mut path_str = track_path.clone();
+                let pstr: PSTR = PSTR(path_str.as_mut_ptr());
+                self.dir_handle = Arc::new(CreateFileA(pstr, FILE_GENERIC_READ | SYNCHRONIZE | FILE_LIST_DIRECTORY | FILE_GENERIC_WRITE , FILE_SHARE_READ | FILE_SHARE_WRITE, std::ptr::null(), 
                                             OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED, HANDLE(0)));  
                 if *self.dir_handle.as_ref() == INVALID_HANDLE_VALUE || (*self.dir_handle.as_ref()).0 as isize == 0 as isize{
-                    return Err(IOError::new(IOErrorKind::Other, format!("Error opening handle with CreateFileA {}", GetLastError().0)));
+                    return Err(IOError::new(IOErrorKind::Other, format!("Error opening handle with CreateFileA {}", GetLastError())));
                 } 
             }
             return Ok(());
@@ -107,7 +110,8 @@ pub mod rustssh {
                         // starting an async ReadDirectoryChangesW function
                         overlap = OVERLAPPED::default();
                         unsafe {
-                            overlap.hEvent = CreateEventA(std::ptr::null(), false, true, "remit_dir_poll");
+                            let event_name_pstr: PSTR = PSTR("remit_dir_poll".to_string().as_mut_ptr());
+                            overlap.hEvent = CreateEventA(std::ptr::null(), false, true, event_name_pstr);
                             if ReadDirectoryChangesW(shared_dir_handle.as_ref(), buffer.as_mut_ptr() as *mut _ as *mut std::ffi::c_void, 
                                                             buffer.len() as u32,  true, 
                                                             FILE_NOTIFY_CHANGE_LAST_WRITE | FILE_NOTIFY_CHANGE_CREATION |
@@ -115,7 +119,7 @@ pub mod rustssh {
                                                             &mut bytes_out, 
                                                             &mut overlap, 
                                                             None).0 == 0 {
-                                println!("Error During ReadDirectory Changes: {}", GetLastError().0);
+                                println!("Error During ReadDirectory Changes: {}", GetLastError());
                             }
                         }
                         operation_in_progress = true;
@@ -124,7 +128,7 @@ pub mod rustssh {
                     else {
                         unsafe {
                             if GetOverlappedResult(shared_dir_handle.as_ref(), &mut overlap,&mut bytes_out, false).0 == 0 as i32 {
-                                let error = GetLastError().0;
+                                let error = GetLastError();
                                 if error != 996 {
                                     return Err(IOError::new(IOErrorKind::Other, format!("Error during result reading: {}", error)));
                                 }
@@ -140,7 +144,7 @@ pub mod rustssh {
                             let info: *const FILE_NOTIFY_INFORMATION = &buffer[index as usize] as *const u8 as *const _ as *const FILE_NOTIFY_INFORMATION; 
                             unsafe {
                                 // only push valid actions not 0
-                                if (*info).Action.0 != 0 {
+                                if (*info).Action != 0 {
                                     let filename = DirectoryTracker::filename_from_notify_obj(&*info);
                                     shared_consumer.lock().unwrap().add_event(Remit::FileEvent::new((*info).Action, format!("{}\\{}", (*thread_path.lock().unwrap()).get_windows_path(), filename),
                                                                                                         filename.clone()));

@@ -75,7 +75,7 @@ pub mod rustssh {
                 println!("ignore rename2. app will perform renaming");
             },
             e => {
-                println!("Other event occured {}", e.0);
+                println!("Other event occured {}", e);
             }
         }
     }
