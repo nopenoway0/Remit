@@ -1,3 +1,12 @@
+//! This module is responsible for catching file change events. It uses the Win32 API to receive any changes to a directory. These events
+//! are then converted and pushed into a vector where a consumer processes each event. The Directory struct
+//! also contains a corresponding consumer.
+//! 
+//! Because there can be 2 threads running in this class, there are 2 methods to control these threads. The start tracking method
+//! starts the consumer and creates a thread to track changers. Conversely, the stop tracking pauses the consumer thread and kills
+//! the tracking thread. It's important to start tracking before calling the stop tracking as doing so can result in 2 threads running at the same time 
+//! producing duplicate events.
+
 pub mod rustssh {
     #[allow(unused_imports,dead_code)]
     use windows::Win32::Storage::FileSystem::*;
@@ -10,7 +19,7 @@ pub mod rustssh {
     use std::fs::create_dir_all;
     use crate::*;
 
-    /// DirectoryTracker tracks all the file events in a given directory. Use the [`start_tracking`] method to spawn a new thread. Control this spawned
+    /// DirectoryTracker tracks all the file events in a given directory. Use the [`DirectoryTracker::start_tracking`] method to spawn a new thread. Control this spawned
     /// thread through the stop_tracking method. This thread creates and pushes [`Remit::FileEvent`] into a vector to be consumed. 
     pub struct DirectoryTracker {
         /// Mutex to a system path. This is directory to be tracked
