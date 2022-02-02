@@ -1,3 +1,7 @@
+//! The syncmanager is used to pass commands to rclone. It doesn't automatically sync files, that is what the FileTracker is for. Instead 
+//! it makes common rsync commands. With an accessible rclone executable, this module can construct 
+//! queries to manage rclone configurations and push/pull files
+//! 
 pub mod rustssh {
 use std::collections::HashMap;
 use std::process::Command;
@@ -7,14 +11,14 @@ use std::os::windows::process::CommandExt;
 use std::fs::metadata;
 use crate::*;
 
-/// MS Windows flag for process creation, prevents window from being called
-/// when starting up separate programs
+/// MS Windows flag for process creation. This flag prevents a console window from appearing when doing
+/// callouts to the rclone exe
 static CREATE_NO_WINDOW: u32 = 0x08000000;
 
 /// Represents an rclone configuration
 #[derive(Clone, Debug)]
 pub struct RCloneConfig {
-    /// type of rclone config e.g. sftp
+    /// Type of rclone configuration e.g. sftp
     config_type: String,
     /// configuration name
     pub name: String,
@@ -24,6 +28,9 @@ pub struct RCloneConfig {
 }
 
 impl RCloneConfig {
+    /// Create a new RCloneConfiguration object
+    /// # Arguments
+    /// * `input` - The text source of an rclone configuration. None creates an empty configuration
     pub fn new(input: Option<String>) -> Result<RCloneConfig, IOError> {
         if input.is_none() {
             return Ok(RCloneConfig{config_type: String::new(),
@@ -35,9 +42,9 @@ impl RCloneConfig {
         return RCloneConfig::parse_config(input.unwrap());
     }
 
-    /// parse the information of an rclone config file
-    /// 
-    /// If any error occurs during parsing throws an error
+    /// Parse the information contained in an rclone configuration
+    /// # Arguments
+    /// * `input` - rclone configuration file text
     fn parse_config(input: String) -> Result<RCloneConfig, IOError>{
         let mut config = RCloneConfig::new(None).unwrap();
         for line in input.lines() {
@@ -63,27 +70,33 @@ impl RCloneConfig {
     }
 }
 
-/// manager for rclone callouts. only supports sftp
+/// Manager for rclone commands. Currently only supports sftp configurations
 /// 
 /// This manager converts common necessary functions used by Remit into 
 /// appropriate commands to run in rclone and then parses the output
 pub struct RCloneManager {
+    /// The name of the rclone executable
     exe: String,
+    /// A map of rclone configurations. These are stored by name
     configs: HashMap<String, RCloneConfig>,   
+    /// The currently chosen configuration by name
     pub chosen_config: String,
+    /// Path which contains the rclone executable
     custom_path: String
 }
 #[allow(dead_code)]
 impl RCloneManager {
-    /// produce a new rlcone manager with the exe at the passed in 
-    /// input. If input is none assume rclone.exe is in the current
+    /// Produces a new rlcone manager. If input is none assume rclone.exe is in the current
     /// directory
+    /// # Arguments
+    /// * `exe` - Name of the rclone executable, if None assume rclone.exe
+    /// * `custom_path` - Path to this executable. If None, assume in the current directory
     pub fn new(exe: Option<String>, custom_path: Option<String>) -> RCloneManager{
         return RCloneManager{exe: exe.unwrap_or("rclone.exe".to_string()), configs: HashMap::new(), chosen_config: String::new(),
                                 custom_path: custom_path.unwrap_or("".to_string())};
     }
 
-    /// check if the required rclone executable exists in the directory
+    /// Check if the required rclone executable exists
     pub fn rclone_exe_exists(&self) -> bool{
         let full_path = self.custom_path.clone() + &self.exe.clone();
         let res = metadata(full_path);
@@ -93,10 +106,7 @@ impl RCloneManager {
         return false;
     }
 
-    /// load all rclone configurations
-    /// 
-    /// Output parses the results of rclone config show into RCloneConfig structs
-    /// and then stores them in this manager
+    /// Load all rclone configurations
     pub fn load_configs(&mut self) -> Result<(), IOError>{
         let output = Command::new(self.exe.clone())
                     .arg("config")
@@ -111,9 +121,9 @@ impl RCloneManager {
         return Ok(());
     }
 
-    /// gets the list of configs as a vector of strings
+    /// Get all the current rclone configuration names
     /// 
-    /// only returns the configuration names not their contents
+    /// This method only returns the configuration names not their contents
     pub fn list_config_names(&mut self) -> Vec<String> {
         let mut res: Vec<String> = Vec::new();
         for entry in &self.configs {
@@ -122,7 +132,9 @@ impl RCloneManager {
         return res;
     }
 
-    /// set the manager to use the config by name
+    /// Set the manager to use a configuration by name
+    /// # Arguments
+    /// * `name` - Name of configuration to use
     pub fn set_config(&mut self, name: String) -> Result<(), std::io::Error> {
         if  self.config_exists(&name) {
             self.chosen_config = name;
@@ -131,15 +143,19 @@ impl RCloneManager {
         return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "Could not find config"));
     }
 
-    /// check if rclone configuration exists by name
+    /// Checks if the rclone configuration exists by name
+    /// # Arguments
+    /// * `name` - Name of configuration to check if exists
     pub fn config_exists(&mut self, name: &String) -> bool{
         return self.configs.contains_key(name);
     }
 
-    /// delete an rclone configuration by name
+    /// Deletes an rclone configuration by name
     /// 
     /// If the configuration doesn't exist or an error occurs during the execution
     /// throw an error
+    /// # Arguments
+    /// * `name` - Name of configuration to delete
     pub fn delete_config(&mut self, name: String) -> Result<std::process::Output, std::io::Error>{
         if self.config_exists(&name) {
             let output = Command::new(self.exe.clone())
@@ -156,9 +172,15 @@ impl RCloneManager {
         return Err(std::io::Error::new(std::io::ErrorKind::NotFound, "config doesn't exist"));
     }
 
-    /// create an sftp rclone config with the given parameters
+    /// Create an sftp rclone config with the given parameters
     /// 
-    /// If a configuration already exists with that name, return an error
+    /// If a configuration already exists with that name, returns an error
+    /// # Arguments
+    /// * `name` - Name of the configuration
+    /// * `username` - 
+    /// * `host` - 
+    /// * `password`
+    /// * `pem_file` - Location and name of PEM file. **Currently not used**
     pub fn create_sftp_config(&mut self, name: String, username: String, 
                                 host: String, password: Option<String>,
                                 pem_file: Option<String>) -> Result<std::process::Output, std::io::Error>{
@@ -188,7 +210,15 @@ impl RCloneManager {
         return command.output();
     }
 
-    /// Attempt to download a remote file using directory and filename
+    /// Attempt to download a remote file using directory and filename. Throws an error if rsync exits improperly.
+    /// 
+    /// The local directory and remote directory work in tandem to download the file to the correct location.
+    /// For example, local_dir may point to `C:\Users\user\Desktop\config_name\.remote\home\user\` and remote_dir would point to
+    /// `/home/user`. When a file is copied from `/home/user` it will be copied to the Windows path on the local machine.
+    /// # Arguments
+    /// * `local_dir` - A system path object that is set to point where the file should be created
+    /// * `remote_dir` - A system path that should point to the file's location on the remote server
+    /// * `filename` - Name of file to upload
     pub fn download_remote_file(&mut self, local_dir: Remit::SystemPath, remote_dir: Remit::SystemPath, filename: String) -> Result<std::process::ExitStatus, IOError>{
         let mut local_path = local_dir.clone();
         let mut remote_path = remote_dir.clone();
@@ -206,6 +236,13 @@ impl RCloneManager {
         return Ok(output.status);
     }
 
+    /// Uploads a local file to the remote machine
+    /// 
+    /// This function operates in the opposite fashion as the [`RCloneManager::download_remote_file`].
+    /// # Arguments
+    /// * `local_dir` - A system path object that is set to point where the file is located
+    /// * `remote_dir` - A system path that should point to the file's location on the remote server
+    /// * `filename` - Name of file to upload
     pub fn upload_local_file(&mut self, local_path: Remit::SystemPath, remote_path: Remit::SystemPath, filename: String) -> Result<std::process::ExitStatus, IOError>{
         let mut local_path = local_path.clone();
         let remote_path = remote_path.clone();

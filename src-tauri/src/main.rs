@@ -1,11 +1,11 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
-/// Contains the backend for the remit application
-/// 
-/// main.rs contains bindngs to perform all io and system operations. This file starts the application as well
-/// as providing an api for the frontend to communicate with file systems. functions that are prepended
-/// with the tauri::command macro are available for the rendered web view to hook. The other parts of the file
-/// are set up and configuration
+//! Contains the backend for the remit application
+//! 
+//! main.rs contains bindngs to perform all io and system operations. This file starts the application as well
+//! as providing an api for the frontend to communicate with file systems. functions that are prepended
+//! with the tauri::command macro are available for the rendered web view to hook. The other parts of the file
+//! are set up and configuration
 
 use tauri::{plugin::{Plugin, Result as PluginResult}, Runtime, PageLoadPayload, Window, Invoke, AppHandle};
 use std::{sync::Mutex, sync::MutexGuard};
@@ -31,7 +31,14 @@ struct Remit<R: Runtime> {
   }
 
 
-  /// Helper method to grab and use the globa Manager
+  /// Helper method to grab and utilize a global RemitManager (ApiRef)
+  /// 
+  /// This method wraps a function so that the getting the api mutex is transparent
+  /// # Arguments
+  /// * `output` - A mutable object of type T. The callback will have access to this variable and can make
+  /// changes
+  /// * `callback` - A function that takes in a mutable output of type T - it will be passed in output variable `
+  /// and the API reference
   fn run_api_command<T>(output:&mut T, callback: &dyn Fn(&mut T, &mut ApiRef) -> Result<(), IOError> ) -> Result<(), String> {
     match REMIT_API.lock() {
       Ok(mut api)=>{
@@ -44,7 +51,11 @@ struct Remit<R: Runtime> {
     }
   }
 
-  /// Download file
+  /// Download a file from the remote
+  /// 
+  /// # Arguments
+  /// * `filename` - Name of file to download
+  /// * `open` - Whether or not to attempt to open this file. If None assume false
   #[tauri::command]
   async fn download(filename: String, open: Option<bool>) -> Result<(), String> {
     let mut var: u32 = 0;
@@ -56,6 +67,9 @@ struct Remit<R: Runtime> {
   }
 
   /// Push filename/directory in global api
+  /// 
+  /// # Arguments
+  /// * `d` - Name of file/directory to push into path
   #[tauri::command]
   async fn pushd(d: String) -> Result<(), String> {
     run_api_command::<String>(&mut d.clone(), &|d: &mut String, api: &mut ApiRef| -> Result<(), IOError> {
@@ -83,11 +97,18 @@ struct Remit<R: Runtime> {
     return Ok(filenames);
   }
 
-  /// use to save an incoming configuration to the local file system
+  /// Use to save an incoming configuration to the local file system
   /// 
   /// Creates 2 copies of the configuration a cleartext and encrypted. The encrytped is handed off to be stored in the local directory
   /// for Remit to use directly while the unencrypted password is sent to rlcone to create a config file. rclone does either obfuscation or
   /// encryption when creating the configuration file.
+  /// # Arguments
+  /// * `username`
+  /// * `password` - Cleartext password
+  /// * `port`
+  /// * `host`
+  /// * `name` - Name of the configuration
+  /// * `encryptedpassword` - Password that has been encrypted by a key
   #[tauri::command]
   async fn save_config(username: String, password: String, port: String, host: String, name: String, encryptedpassword: String) -> Result<String, String>{
     let mut configs:Vec::<RemitConfig> = Vec::new();
@@ -106,7 +127,14 @@ struct Remit<R: Runtime> {
   } 
 
 
-  // the plugin custom command handlers if you choose to extend the API.
+  /// Start an ssh connection with the given parameters
+  /// 
+  /// # Arguments
+  /// * `username`
+  /// * `host`
+  /// * `port`
+  /// * `password`
+  /// * `config` - Configuration name
   #[tauri::command]
   async fn connect(username: String, host: String, port: String, password: String, config: String) -> Result<(), String> {
     let mut fields = vec![host, username, password, config, port];
@@ -117,16 +145,11 @@ struct Remit<R: Runtime> {
     })?;
     return Ok(());
   }
-  
-  // check for dependencies, not working
-  #[tauri::command]
-  async fn check_dependencies() -> Result<(), String> {
-    match Path::new("rclone.exe").is_file() {
-      true=>return Ok(()),
-      false=>return Err("missing dependencies".to_string())
-    }
-  }
 
+  /// Delete a file in the current directory ( as stored by the global api) by filename
+  /// 
+  /// # Arguments
+  /// * `file` - File to delete
   #[tauri::command]
   async fn delete_file(file: String) -> Result<String, String> {
     let mut arg = file.clone();
@@ -137,6 +160,10 @@ struct Remit<R: Runtime> {
     return Ok(arg);
   }
 
+  /// Rename a file in the directory stored in the global API
+  /// 
+  /// # Arguments
+  /// * `file` - File to delete
   #[tauri::command]
   async fn rename_file(file: String, newname: String) -> Result<(), String> {
     let mut filenames = Vec::<String>::new();
@@ -149,7 +176,7 @@ struct Remit<R: Runtime> {
     return Ok(());
   }
 
-  /// get ssh config files
+  /// Get all remit confiugrations
   #[tauri::command]
   async fn get_config_names() -> Result<Vec<HashMap<String, String>>, String> {
     let mut configs = Vec::<HashMap::<String,String>>::new();
@@ -169,6 +196,10 @@ struct Remit<R: Runtime> {
     return Ok(configs);
   }
 
+  /// Create a file in the current directory ( as stored in the global api)
+  /// 
+  /// # Arguments
+  /// * `filename` - File to create
   #[tauri::command]
   async fn create_file(filename: String) -> Result<(), String> {
     let mut m_filename = filename.clone();
@@ -179,6 +210,10 @@ struct Remit<R: Runtime> {
     return Ok(());
   }
 
+  /// Create a directory in the current directory ( as stored in the global api)
+  /// 
+  /// # Arguments
+  /// * `dirname` - Directory to create  
   #[tauri::command]
   async fn create_dir(dirname: String) -> Result<(), String> {
     let mut m_dirname = dirname.clone();
@@ -189,6 +224,7 @@ struct Remit<R: Runtime> {
     return Ok(());
   }
 
+  /// Check if a valid rclone exe exists
   #[tauri::command]
   fn rclone_exe_exists() -> bool {
     let mut res = false;
@@ -199,7 +235,7 @@ struct Remit<R: Runtime> {
     return res;
   }
 
-  /// disconnect current ssh session
+  /// Disconnects the current ssh session
   #[tauri::command]
   fn disconnect() -> Result<(), String>{
     let mut var = 1u8;

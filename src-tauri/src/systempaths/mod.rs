@@ -1,36 +1,45 @@
+//! The SystemPath struct is used to track a path both in Linux and in Windows.
+//! It can parse simple Windows/Linux paths. However, the most reliable way to use the
+//! struct is to make changes one directory at a time. For example, if you are in the path
+//! /home when you move to /home/username you would push "username" into the path.
+
 pub mod rustssh {
 
 use std::collections::VecDeque;
 use std::string::String;
 use std::iter::Iterator;
 
-/// used to track linux system paths through popping and pushing directories. Can convert
+/// Used to track linux system paths through popping and pushing directories. It can convert
 /// to windows paths although not very robust
 #[derive(Clone, Debug)]
 pub struct SystemPath {
+    /// Each section of a path
     path: VecDeque<String>,
+    /// The path queue converted into a linux path as a string
     path_str: String
 }
 
 #[allow(dead_code)]
 impl SystemPath {
+    /// Create a new empty path
     pub fn new() -> SystemPath{
         return SystemPath{path: VecDeque::new(),
                             path_str: String::new()};
     }
 
-    /// get the created path string
-    /// 
-    /// this does not return the individual elements in the vector
+    /// Get the stored path as a string in Linux format. e.g. /home/username
     pub fn get_path(&self) -> String{
         return self.path_str.clone();
     }
 
-    /// convert path string to windows by replacing / with \ and \\ with \
+    /// Convert the stored Linux path string to Windows by replacing / with \
     pub fn get_windows_path(&self) -> String {
         return self.get_path().replace("/", "\\");
     }
 
+    /// If the first character is a backslash remove it. This occurs with aboslute paths
+    /// For example, /home/homeadmin will convert to \home\homeadmin. This method changes that to
+    /// home\homeadmin keeping it in the same relative directory
     pub fn get_windows_path_local(&self) -> String {
         let s = self.get_windows_path();
         if s.chars().next().unwrap() == '\\' {
@@ -40,8 +49,8 @@ impl SystemPath {
         }
     }
 
-    /// create string from elements in the vec::<string>
-    /// ran after every popd and pushd
+    /// Creates a string from elements in the vec
+    /// This method is ran after every popd and pushd call
     fn create_path_str(&mut self) {
         if self.path.len() == 0 {
             return self.path_str = "/".to_string();
@@ -57,9 +66,10 @@ impl SystemPath {
         self.path_str = path_str;
     }
 
-    /// pop the last element, unless empty. return
+    /// Pop the last element in the queue. If the queue is empty
+    /// a / will be inserted denoting the top directory in Linux
     /// 
-    /// method is used to go up one directory
+    /// This method is used to go to the parent directory
     pub fn popd(&mut self) -> String{
         let r = self.path.pop_back();
         if self.path.len() == 0 {
@@ -69,9 +79,11 @@ impl SystemPath {
         return r.unwrap_or("".to_string());
     }
 
-    /// push directory
+    /// Add a directory to the path.
     /// 
-    /// used to descend into directories
+    /// This method is used to descend into directories
+    /// # Arguments
+    /// * `d` - Directory name to add to path
     pub fn pushd(&mut self, d: String) {
         if !self.check_should_add(d.clone()){
             return;
@@ -80,12 +92,20 @@ impl SystemPath {
         self.create_path_str();
     }
 
+    /// Checks if the incoming name is valid to add. The incoming string is valid if
+    /// its length is greater than 1, it does not equal / or . and is not just spaces
+    /// 
+    /// # Arguments
+    /// * `d` - String to check is valid to add to path
     fn check_should_add(&mut self, d: String) -> bool{
         return !(d.len() == 0 || d == "/" || d == "." || d.replace(" ", "").len() == 0);
     }
 
-    /// push directory at beginning of vec
+    /// Push this directory at the beginning of the path. For example,
+    /// to go from username/.ssh to /home/username/.ssh
     /// 
+    /// # Arguments
+    /// * `d` - Directory to add to beginning of path
     pub fn prepd(&mut self, d: String) {
         if !self.check_should_add(d.clone()){
             return;
@@ -99,16 +119,18 @@ impl SystemPath {
         self.create_path_str();  
     }
 
-    /// clear both path and vector data
+    /// Clear both path and vector data
     pub fn clear(&mut self) {
         self.path_str.clear();
         self.path.clear();
     }
 
-    /// parse a path string
+    /// Parse a Linux path string
     /// 
-    /// if the reconstruction of the parsed string differs
+    /// If the reconstruction of the parsed string differs
     /// from the input return false, else return true
+    /// # Arguments
+    /// * `path` - Linux path string to parse
     pub fn set_path(&mut self, path: String) -> bool{
         self.path.clear();
         if path.len() == 0 {
@@ -124,6 +146,10 @@ impl SystemPath {
         return self.path_str == path;
     }
 
+    /// Performs the same function as [`SystemPath::set_path`] except for a Windows style path string
+    /// 
+    /// # Arguments
+    /// * `path` - Windows path to parse
     pub fn set_win_path(&mut self, path: String) -> bool {
         self.path.clear();
         if path.len() == 0 {

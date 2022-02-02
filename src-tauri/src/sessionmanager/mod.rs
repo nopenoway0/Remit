@@ -1,3 +1,8 @@
+//! Ths module is responsible for creating and managing ssh sessions. Through its manager class, remote commands can be executed to gather information
+//! about the server. Although any command can be run through the run_command method, the main use of this class is to gather file and directory 
+//! information to feed back to the front end. This is typically done through `stat`. To facilitate this information, directory information is stored
+//! in the Directory object. A Directory object contains a list of files - represented by the RemitFile class - and a path.
+
 pub mod rustssh {
 use ssh2::*;
 use std::net::TcpStream;
@@ -6,18 +11,22 @@ use std::fmt::Debug;
 use std::collections::BTreeMap;
 use crate::*;
 
-/// denotes the type of file
+/// Denotes the RemitFile type
 #[derive(Debug, Clone)]
 pub enum FileType {
+    /// A directory
     TypeDirectory,
+    /// A file
     TypeFile,
+    /// Denotes symlink type
     TypeLink,
+    /// Unknown type
     TypeUnknown
 }
 
-/// denotes permission for a file or directory
+/// Permission information for a file
 /// 
-/// each file has 3 permissions objects - owner, group, other
+/// Each file has 3 permissions objects - owner, group, other
 #[derive(Debug, Clone)]
 pub struct Permissions {
     pub write: bool,
@@ -27,10 +36,13 @@ pub struct Permissions {
 
 impl Permissions {
 
-    /// create a new permissions object with the default permissions set to all false
+    /// Create a new permissions object with the default permissions set to all false
     /// 
-    /// pass in a 3 character string to build a permission object with designated permissions
-    /// string should be as it appears in a ls -a command. for example rwx or r--
+    /// Pass in a 3 character string to build a permission object with designated permissions. These permissions
+    /// are expected as: ---. For example, r-x.
+    /// # Arguments
+    /// * `input` - If some string, parse the string and create a permissions object. Otherwise, just create a permissions object
+    /// with all bits set to 0
     pub fn new(input: Option<String>) -> Permissions {
         if input.is_none() {
             return Permissions{write: false, read: false, exec: false};
@@ -44,29 +56,39 @@ impl Permissions {
     }
 }
 
-/// ssh manager makes and manages an ssh connection
+/// SessionManager manages an ongoing ssh session.
 pub struct SessionManager {
+    /// An ongoing ssh session
     session: Session,
+    /// A created user agent **not currently used**
     agent: Option<Agent>,
+    /// username
     user: String,
+    /// password
     pass: String,
+    //destination
     url: String
 }
 
-/// contains information for the file it belongs to
+/// Represents information about a file. Can be directory, file, symlink or other
 #[derive(Debug, Clone)]
 pub struct FileInfo {
+    /// file name
     pub name: String,
     /// size in bytes
     pub size: u64,
-    pub file_type: FileType, // delete this?
+    /// Type of file
+    pub file_type: FileType,
+    /// Group permissions
     pub group: Permissions,
+    /// Owner permissions
     pub owner: Permissions,
+    /// Other permissions
     pub other: Permissions
 }
 
 impl FileInfo {
-    /// construct a new fileinfo object with empty name, 0 bytes, and all permissions false
+    /// Construct a new fileinfo object with empty name, 0 bytes, and all permissions false
     pub fn new() -> FileInfo{
         return FileInfo {name: String::new(),
                         size: 0u64,
@@ -77,18 +99,23 @@ impl FileInfo {
     }
 }
 
-/// contains fileinfo and type
+/// A loaded file that contains information about a file
 #[derive(Debug, Clone)]
 pub struct RemitFile {
     pub info: FileInfo,
 }
 
-/// representation of a file to be consumed by Remit
 impl RemitFile {
+    /// Create a new empty RemitFile
     pub fn new() -> RemitFile {
         return RemitFile{info: FileInfo::new()};
     }
 
+    /// Create a RemitFile object from the supplied parameters
+    /// # Arguments
+    /// * `name` - Name of the file
+    /// * `size` - Optional file size. If none passed, assume 0
+    /// * `file_type` - Type of file. If none is passed create using [`FileType::TypeUnknown`]
     pub fn new_populated(name: String, size: Option<u64>, file_type: Option<FileType>) -> RemitFile {
         let mut info = FileInfo::new();
         info.name = name;
@@ -111,14 +138,15 @@ pub struct Directory {
 #[allow(dead_code)]
 impl Directory {
 
-    /// clear path and file contents
+    /// Clear path and all file contents
     pub fn clear(&mut self) {
         self.path.clear();
         self.files.clear();
     }
 
-    /// construct a new directory. It will be empty unless an string, obtained by running ls -al, is passed
-    /// to it
+    /// Construct a new directory either empty or parse a the incoming string
+    /// # Arguments
+    /// * `str_input` - the results of the stat command. Pass in None to create an empty directory
     pub fn new(str_input: Option<String>) -> Directory{
         let mut dir = Directory{files: BTreeMap::new(), path: Remit::SystemPath::new()};
         if str_input.is_some() {
@@ -127,7 +155,9 @@ impl Directory {
         return dir;
     }
 
-    /// parse ls -al output storing file name, permissions, size and type
+    /// Parse a string to create the file structure in a directory
+    /// # Arguments
+    /// * `input` - The output of a `stat .* * --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n` command
     fn parse_string(input: String) -> BTreeMap<String,RemitFile>{
         let mut files: BTreeMap<String, RemitFile> = BTreeMap::new();
         // default structure including . and ..
@@ -162,8 +192,7 @@ impl Directory {
         return files;
     }
 
-    /// parses a permission string given by ls -al
-    /// expects format of drwxrwxrwx
+    /// #DEPRECATED
     fn parse_permissions_string(f: &mut RemitFile, input: String) {
         f.info.file_type = Directory::parse_file_type(&input);
         f.info.group = Permissions::new(Some(input[1..4].to_string()));
@@ -172,11 +201,10 @@ impl Directory {
     }
 
 
-    /// takes the first element of a permission string acquired by ls -al
-    /// l -> link
-    /// d -> directory
-    /// - -> file
-    /// anything else -> unknown
+    /// Convert the incoming string type into the proper enum. 
+    /// For example, `link` will get converted to [`FileType::TypeLink`]
+    /// # Arguments
+    /// * `input` - String to be converted into enum
     fn parse_file_type(input: &str) -> FileType{
         let filetype: FileType;
         match input {
@@ -192,12 +220,22 @@ impl Directory {
 #[allow(dead_code)]
 impl SessionManager {
 
+    /// Set the session manager parameters
+    /// # Arguments
+    /// * `user` - Username. If none, assume empty
+    /// * `pass` - Password. If none, assume empty
+    /// * `url` - Host endpoint. If none assume empty
     pub fn set_params(&mut self, user: Option<String>, pass: Option<String>, url: Option<String>) {
         self.url = url.unwrap_or("".to_string());
         self.user = user.unwrap_or("".to_string());
         self.pass = pass.unwrap_or("".to_string());
     }
 
+    /// Create a new session manager with the designated parameters
+    /// # Arguments
+    /// * `user` - Username. If none, assume empty
+    /// * `pass` - Password. If none, assume empty
+    /// * `url` - Host endpoint. If none assume empty
     pub fn new(user: Option<String>, pass: Option<String>, url: Option<String>) -> Result<SessionManager, Error> {
         let session = Session::new()?;
         let username: String = user.unwrap_or("".to_string());
@@ -212,6 +250,7 @@ impl SessionManager {
         return Ok(manager);
     }
 
+    /// End the current ssh session
     pub fn disconnect(&mut self) -> Result<(), IOError>{
         match self.session.disconnect(Some(ssh2::DisconnectCode::ByApplication), "disconnect requested by app", None) {
             Ok(_) => return Ok(()),
@@ -219,7 +258,7 @@ impl SessionManager {
         }
     }
 
-    /// connect using the set parameters. 
+    /// Connect using the already set parameters
     /// 
     /// Currently only supports username and pass. TODO support keyfile
     pub fn connect(&mut self) -> Result<(), IOError>{
@@ -231,7 +270,7 @@ impl SessionManager {
         return Ok(());
     }
 
-    /// unused method that starts session agent. may be useful for keyfiles
+    /// Method that starts session agent. **Does not currently work and is not used**
     pub fn start_agent(&mut self) -> Result<(), Error>{
         self.agent = Some(self.session.agent().unwrap());
         let agent = self.agent.as_mut();
@@ -239,7 +278,9 @@ impl SessionManager {
         return r;
     }
 
-    /// run ssh command through current connection
+    /// Run an ssh command on the remote machine
+    /// # Arguments
+    /// * `command` - Command to be ran on the remote machine
     pub fn run_command(&mut self, command: String) -> Result<String, Error>{
         let mut channel: ssh2::Channel = self.session.channel_session()?;
         channel.exec(command.as_str())?;
@@ -248,10 +289,12 @@ impl SessionManager {
         return Ok(s.trim_end().to_string());
     }
 
-    /// get file contents of the current directory using the directory's path
+    /// Load the file contents of the directory into that directory
     /// 
-    /// Parses an ls -al command at the directory's path. This will store file information
+    /// Parses a stat command - see source for full command - at the directory's path. This will store file information
     /// into the directory object
+    /// # Arguments
+    /// * `d` - Directory to store file contents
     pub fn get_directory(&mut self, d: &mut Directory) -> Result<(), Error>{
         println!("cd {} && stat .* --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n'", d.path.get_path());
         let dir_str = self.run_command(format!("(cd {} && stat .* * --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n')", d.path.get_path()))?;
@@ -259,9 +302,13 @@ impl SessionManager {
         return Ok(());
     }
 
-    /// modify the directory's path by pushing the name string
+    /// Push the name onto the directory path essentially "navigating" to that path.
     /// 
-    /// Does not update the file contents, only modifies the path
+    /// This method does not update the file contents, only modifies the path. Additionally, before navigating, the
+    /// method will check if the name exists in the current directory and it is a file. Therefore, symlinks are not currently supported.
+    /// # Arguments
+    /// * `d` - Directory to push name into
+    /// * `name` - Name of directory to navigate to
     pub fn navigate(&mut self, d: &mut Directory, name: String) -> Result<(), IOError>{
         // check if we should pop
         if name == ".." {
