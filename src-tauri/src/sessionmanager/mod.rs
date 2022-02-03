@@ -296,8 +296,8 @@ impl SessionManager {
     /// # Arguments
     /// * `d` - Directory to store file contents
     pub fn get_directory(&mut self, d: &mut Directory) -> Result<(), Error>{
-        println!("cd {} && stat .* --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n'", d.path.get_path());
-        let dir_str = self.run_command(format!("(cd {} && stat .* * --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n')", d.path.get_path()))?;
+        println!("cd \"{}\" && stat .* --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n'", d.path.get_path());
+        let dir_str = self.run_command(format!("(cd \"{}\" && stat .* * --printf='Name: %n\\nPermissions: %a\\nSize: %s\\nType: %F\\n\\n')", d.path.get_path()))?;
         d.files = Directory::parse_string(dir_str);
         return Ok(());
     }
