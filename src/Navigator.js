@@ -1,7 +1,7 @@
 import React from 'react'
 import { Component } from 'react/cjs/react.production.min'
 import { invoke } from '@tauri-apps/api/tauri';
-import {Button, Grid, Paper, Backdrop} from '@mui/material'
+import {Button, Grid, Paper, Backdrop, Box} from '@mui/material'
 import RemitFile from "./RemitFile"
 import ContextMenu from "./ContextMenu"
 import EntryDialog from "./EntryDialog"
@@ -329,7 +329,7 @@ class Navigator extends Component {
             }
             index += 1;
         }
-        return (<div className="App" onContextMenu={(e)=>this.handleBackgroundRightClick(e)}>
+        return (<Box height="100vh" className="App" onContextMenu={(e)=>this.handleBackgroundRightClick(e)}>
                     <EntryDialog onAccept={this.state.createDialogCallbacks.accept} onDecline={this.state.createDialogCallbacks.decline} decline_button_text="Cancel" accept_button_text="Ok" title="Create New" prompt="Enter Name" show={this.state.showNameDialog}/>
                     <ContextMenu key="menu" ref={this.menu} open={this.state.contextMenuOpen} left={this.state.contextMenuPos.x} top={this.state.contextMenuPos.y} menuitems={this.state.contextMenuItems}/>
                     <Backdrop sx={{zIndex:99}} open={this.state.lockScreen}/>
@@ -338,7 +338,7 @@ class Navigator extends Component {
                             {files}
                     </Grid>
 
-        </div>);
+                </Box>);
     }
 
 }
