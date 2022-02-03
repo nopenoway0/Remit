@@ -251,8 +251,7 @@ struct Remit<R: Runtime> {
     // see https://doc.rust-lang.org/1.0.0/style/ownership/builders.html
     pub fn new() -> Self {
       Self {
-        invoke_handler: Box::new(tauri::generate_handler![connect,disconnect, 
-                                                          check_dependencies, create_file,
+        invoke_handler: Box::new(tauri::generate_handler![connect,disconnect, create_file,
                                                           get_config_names, rename_file,
                                                           list_current_directory, create_dir,
                                                           pushd, download,delete_file,
