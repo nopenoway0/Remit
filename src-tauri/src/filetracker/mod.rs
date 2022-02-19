@@ -1,3 +1,12 @@
+//! This module is responsible for catching file change events. It uses the Win32 API to receive any changes to a directory. These events
+//! are then converted and pushed into a vector where a consumer processes each event. The Directory struct
+//! also contains a corresponding consumer.
+//! 
+//! Because there can be 2 threads running in this class, there are 2 methods to control these threads. The start tracking method
+//! starts the consumer and creates a thread to track changers. Conversely, the stop tracking pauses the consumer thread and kills
+//! the tracking thread. It's important to start tracking before calling the stop tracking as doing so can result in 2 threads running at the same time 
+//! producing duplicate events.
+
 pub mod rustssh {
     #[allow(unused_imports,dead_code)]
     use windows::Win32::Storage::FileSystem::*;
@@ -11,14 +20,27 @@ pub mod rustssh {
     use std::fs::create_dir_all;
     use crate::*;
 
+    /// DirectoryTracker tracks all the file events in a given directory. Use the [`DirectoryTracker::start_tracking`] method to spawn a new thread. Control this spawned
+    /// thread through the stop_tracking method. This thread creates and pushes [`Remit::FileEvent`] into a vector to be consumed. 
     pub struct DirectoryTracker {
+        /// Mutex to a system path. This is directory to be tracked
         path: Arc::<Mutex::<Remit::SystemPath>>,
+
+        /// Current thread status
         thread_control: Arc<Mutex::<ThreadStatus>>,
+        
+        /// The retrieved handle to the directory
         dir_handle: Arc<HANDLE>,
+
+        /// The consumer for the file events
         consumer: Arc::<Mutex::<Remit::FileEventConsumer>>
     }
 
     impl DirectoryTracker {
+        /// Create a new directory tracker
+        /// # Arguments
+        /// * `path` - Path to track
+        /// * `rclone_instance` - Shared rclone manager
         pub fn new(path: Remit::SystemPath, rclone_instance: Arc::<Mutex::<Remit::RCloneManager>>) -> DirectoryTracker {
             return DirectoryTracker{path: Arc::new(Mutex::new(path)),
                                     thread_control: Arc::new(Mutex::new(ThreadStatus::Resume)),
@@ -26,8 +48,8 @@ pub mod rustssh {
                                     consumer: Arc::new(Mutex::new(Remit::FileEventConsumer::new(rclone_instance.clone())))};
         }
 
-        /// set the event tracker to kill - stop the creation of events and set the consumer thread to pause and then clear
-        /// all waiting events - not processing these events
+        /// This function sets the directory tracking thread status to kill. Then it pauses the consumer and clears all waiting events. 
+        /// TODO: need to add a drop to kill the consumer method as well
         pub fn stop_tracking(&mut self) {
             let mut control = self.thread_control.lock().unwrap();
             *control = ThreadStatus::Kill;
@@ -35,8 +57,10 @@ pub mod rustssh {
             self.consumer.lock().unwrap().clear();
         }
 
-        /// Given a FILE_NOTIFY_INFORMATION object extract the uf16 information and convert to
-        /// utf-8
+        /// Given a FILE_NOTIFY_INFORMATION object extract the uf16 information and convert it
+        /// to a utf8 String
+        /// # Arguments
+        /// * `obj` - A Win32 FILE_NOTIFY_INFORMATION for the FileName field to be extracted
         fn filename_from_notify_obj(obj: &FILE_NOTIFY_INFORMATION) -> String{
             let mut buffer: Vec::<u16> = Vec::new();
             let buffer_length = obj.FileNameLength/2;
@@ -56,6 +80,8 @@ pub mod rustssh {
         /// FILE_GENERIC_READ | SYNCHRONIZE | FILE_LIST_DIRECTORY | FILE_GENERIC_WRITE , FILE_SHARE_READ | FILE_SHARE_WRITE and 
         /// OPEN_EXISTING, FILE_FLAG_BACKUP_SEMANTICS | FILE_FLAG_OVERLAPPED pass to it. If the handle is invalid or NULL then an error is returned
         /// Paths are only valid for windows as the formatting is ({}\\{}, current_directory, relative_windows_path)
+        /// # Arguments
+        /// * `path` - Path to track. Will be created if necessary
         fn set_dir_handle(&mut self, path: &Remit::SystemPath) -> Result<(), IOError> {
             // build absolute path on windows
             let track_path = format!("{}\\{}", current_dir().unwrap().to_str().unwrap(), path.get_windows_path());
@@ -76,6 +102,10 @@ pub mod rustssh {
             return Ok(());
         }
 
+        /// Spawn a thread to track file change events at a given path. Create [`Remit::FileEvent`] from the Win32 event and push them onto a vector
+        /// to be processed by the [`Remit::FileEventConsumer`]. 
+        /// # Arguments
+        /// * `path` - System path to track
         /// TODO add error handling
         pub fn start_tracking(&mut self, path: &mut Remit::SystemPath) -> Result<(), IOError> {
             self.set_dir_handle(path)?;
